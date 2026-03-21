@@ -3,33 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="robots" content="noindex,nofollow">
-    <title>Endfield Industrial Planner - Theme Edition</title>
+    <title>Endfield Industrial Planner</title>
     <style>
-        /* デフォルトテーマ（ダーク） */
         :root { 
-            --bg: #1a1c1e; --panel: #2d2f31; --accent: #ffcf00; --text: #e0e0e0; 
-            --danger: #ff6b6b; --warning: #ffae00; --success: #2ecc71; --grid: #222222;
+            /* 共通カラー（イエローアクセント） */
+            --accent: #ffcf00; --danger: #ff4444; --warning: #ffae00; --success: #2ecc71;
+            /* デフォルト：ダークテーマ（エンドフィールド風） */
+            --bg: #121416; --panel: #1c1f23; --text: #ffffff; --grid: #2a2d30; --btn-bg: rgba(255, 207, 0, 0.1);
         }
-
-        /* ライトテーマ */
+        
+        /* ライトテーマ（イエローアクセント） */
         body.theme-light {
-            --bg: #e0e0e0; --panel: #ffffff; --accent: #007bff; --text: #333333;
-            --grid: #cccccc;
+            --bg: #f5f5f5; --panel: #ffffff; --text: #1a1c1e; --grid: #d0d0d0; --btn-bg: rgba(0, 0, 0, 0.05);
         }
 
-        /* エンドフィールド特化テーマ（工業感） */
-        body.theme-endfield {
-            --bg: #121416; --panel: #1c1f23; --accent: #ffcf00; --text: #ffffff;
-            --grid: #2a2d30;
-        }
-
-        /* サイバーパンク */
-        body.theme-cyber {
-            --bg: #0d0221; --panel: #261447; --accent: #ff0055; --text: #00f2ff;
-            --grid: #3a0ca3;
-        }
-
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; transition: background 0.3s; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
         
         #sidebar { 
             width: 280px; background: var(--panel); border-right: 2px solid rgba(128,128,128,0.2); padding: 20px; 
@@ -49,17 +37,17 @@
         body.sidebar-closed #toggle-sidebar { left: 0; }
 
         .tool-group { border: 1px solid rgba(128,128,128,0.3); padding: 10px; border-radius: 4px; margin-bottom: 5px; }
-        label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; }
-        h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid rgba(128,128,128,0.2); padding-bottom: 5px; white-space: nowrap; }
+        label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+        h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); }
         
-        .tool-btn { width: 100%; padding: 10px; margin: 4px 0; background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.2); color: var(--text); cursor: pointer; text-align: left; transition: 0.2s; border-radius: 4px; font-size: 0.9em; display: flex; align-items: center; gap: 8px; }
-        .tool-btn:hover { background: rgba(128,128,128,0.2); }
-        .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; }
+        .tool-btn { width: 100%; padding: 10px; margin: 4px 0; background: var(--btn-bg); border: 1px solid rgba(128,128,128,0.2); color: var(--text); cursor: pointer; text-align: left; transition: 0.2s; border-radius: 4px; font-size: 0.9em; display: flex; align-items: center; gap: 8px; }
+        .tool-btn:hover { background: rgba(255, 207, 0, 0.2); border-color: var(--accent); }
+        .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); }
         .action-btn { justify-content: center; text-align: center; font-weight: bold; }
         .save-btn { background: var(--success); color: white; border: none; margin-top: 8px !important; }
+        .save-btn:hover { opacity: 0.9; }
 
-        /* テーマ選択ドロップダウン */
-        .theme-select { width: 100%; padding: 8px; background: rgba(0,0,0,0.2); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; outline: none; margin-bottom: 5px; cursor: pointer; }
+        .theme-select { width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; outline: none; cursor: pointer; font-weight: bold; }
 
         #main { flex: 1; position: relative; overflow: hidden; background: var(--bg); cursor: crosshair; }
         #main.dragging-map { cursor: grabbing; }
@@ -68,14 +56,14 @@
         
         .status-bar { 
             position: fixed; bottom: 10px; left: calc(280px + 20px); 
-            background: rgba(0,0,0,0.7); padding: 5px 12px; font-size: 12px; border-radius: 4px; 
+            background: rgba(0,0,0,0.8); padding: 5px 12px; font-size: 12px; border-radius: 4px; 
             z-index: 90; pointer-events: none; transition: left 0.3s ease; 
-            border: 1px solid rgba(128,128,128,0.3); color: #fff;
+            border: 1px solid var(--accent); color: var(--accent);
         }
         body.sidebar-closed .status-bar { left: 20px; }
 
-        .controls-hint { font-size: 0.7em; color: #888; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; }
-        textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.3); color: #0f0; border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
+        .controls-hint { font-size: 0.7em; color: #888; line-height: 1.5; background: rgba(128,128,128,0.1); padding: 8px; border-radius: 4px; border-left: 3px solid var(--accent); }
+        textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
         .warning-text { font-size: 0.65em; color: var(--warning); margin-top: 8px; line-height: 1.4; border-top: 1px dashed rgba(128,128,128,0.3); padding-top: 8px; }
     </style>
 </head>
@@ -86,16 +74,6 @@
 <div id="sidebar">
     <h2>工業設計端末</h2>
     
-    <div class="tool-group">
-        <label>テーマ設定</label>
-        <select class="theme-select" onchange="changeTheme(this.value)" id="theme-selector">
-            <option value="default">ダーク (標準)</option>
-            <option value="light">ライト</option>
-            <option value="endfield">エンドフィールド</option>
-            <option value="cyber">サイバーパンク</option>
-        </select>
-    </div>
-
     <div id="dynamic-tools"><label>設備読み込み中...</label></div>
 
     <div class="tool-group">
@@ -116,11 +94,20 @@
             ・大切な設計図は「書き出し」て保存を推奨。
         </div>
     </div>
+
+    <div class="tool-group">
+        <label>テーマ設定</label>
+        <select class="theme-select" onchange="changeTheme(this.value)" id="theme-selector">
+            <option value="default">ダーク (エンドフィールド風)</option>
+            <option value="light">ライト (クリーン)</option>
+        </select>
+    </div>
     
     <div class="controls-hint">
         <strong>【操作ヘルプ】</strong><br>
         ・移動：ホイール押し込み<br>
         ・設置/移動：左クリック/ドラッグ<br>
+        ・削除：右クリック<br>
         ・ズーム：ホイール(25%~150%)
     </div>
 </div>
@@ -153,7 +140,6 @@
     canvas.width = mapSize * baseGridSize;
     canvas.height = mapSize * baseGridSize;
 
-    // --- テーマ管理 ---
     function changeTheme(theme) {
         document.body.className = theme === 'default' ? '' : 'theme-' + theme;
         localStorage.setItem('endfield_theme', theme);
@@ -161,11 +147,16 @@
 
     function loadTheme() {
         const savedTheme = localStorage.getItem('endfield_theme') || 'default';
-        document.getElementById('theme-selector').value = savedTheme;
-        changeTheme(savedTheme);
+        const selector = document.getElementById('theme-selector');
+        if (savedTheme !== 'default' && savedTheme !== 'light') {
+            changeTheme('default');
+            selector.value = 'default';
+        } else {
+            selector.value = savedTheme;
+            changeTheme(savedTheme);
+        }
     }
 
-    // --- システム関数 ---
     function centerMap() {
         const rect = mainArea.getBoundingClientRect();
         const mapPxSize = mapSize * baseGridSize * scale;
@@ -187,12 +178,9 @@
         const expCtx = expCanvas.getContext('2d');
         const res = mapSize * baseGridSize;
         expCanvas.width = res; expCanvas.height = res;
-        
-        // 現在のテーマの背景色を取得して画像に適用
         const styles = getComputedStyle(document.body);
         expCtx.fillStyle = styles.getPropertyValue('--bg').trim();
         expCtx.fillRect(0, 0, res, res);
-        
         expCtx.strokeStyle = styles.getPropertyValue('--grid').trim();
         expCtx.lineWidth = 1;
         for(let i=0; i<=mapSize; i++) {
@@ -275,15 +263,12 @@
     function draw() {
         const styles = getComputedStyle(document.body);
         const gridColor = styles.getPropertyValue('--grid').trim();
-
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.translate(offsetX, offsetY);
         ctx.scale(scale, scale);
         const fullSize = mapSize * baseGridSize;
-        
-        ctx.strokeStyle = gridColor; 
-        ctx.lineWidth = 1/scale;
+        ctx.strokeStyle = gridColor; ctx.lineWidth = 1/scale;
         for(let i=0; i<=mapSize; i++) {
             ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, fullSize); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, i*baseGridSize); ctx.lineTo(fullSize, i*baseGridSize); ctx.stroke();
