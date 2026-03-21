@@ -70,7 +70,7 @@
         .tool-btn[data-size]:hover .count-badge { visibility: hidden; }
 
         .action-btn { font-weight: bold; justify-content: center; text-align: center; }
-        .full-width { grid-column: span 2; } /* 2列分使うクラス */
+        .full-width { grid-column: span 2; } 
         .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
         .save-btn:hover { opacity: 1; }
 
@@ -198,7 +198,7 @@
     let dragStartPos = { x: 0, y: 0 };
     let lastMousePos = { x: 0, y: 0 };
     let placedItems = [];
-    let currentTool = null; // nullなら移動モード
+    let currentTool = null;
     let mouseGrid = { x: 0, y: 0 };
     let allBuildings = [];
     let currentCategory = 'all';
@@ -314,7 +314,6 @@
         updateStats();
     }
 
-    // --- モード切替の修正 ---
     function setTool(config) {
         currentTool = config; renderButtons();
         document.getElementById('btn-eraser').classList.remove('active');
@@ -333,12 +332,14 @@
         document.getElementById('btn-move').classList.add('active');
     }
 
+    // --- 修正：ラベルのテキストサイズを拡大し、描画を微調整 ---
     function drawLabel(context, text, x, y, maxWidth) {
-        const padding = 4;
+        const padding = 6; // 余白を少し広めに
         const availableW = maxWidth - padding * 2;
-        context.font = "bold 10px sans-serif";
+        context.font = "bold 13px sans-serif"; // 10px -> 13px
         context.textAlign = "center";
         context.textBaseline = "middle";
+        
         let displayName = text;
         if (context.measureText(displayName).width > availableW) {
             while (displayName.length > 0 && context.measureText(displayName + "...").width > availableW) {
@@ -346,11 +347,14 @@
             }
             displayName += "...";
         }
-        if (context.measureText("...").width > availableW && availableW < 10) return;
-        context.fillStyle = "rgba(0, 0, 0, 0.7)";
-        context.fillText(displayName, x, y);
+        
+        if (context.measureText("...").width > availableW && availableW < 12) return;
+
+        // 影を少し強めて視認性を維持
+        context.fillStyle = "rgba(0, 0, 0, 0.85)";
+        context.fillText(displayName, x + 0.5, y + 0.5);
         context.fillStyle = "#fff";
-        context.fillText(displayName, x, y - 0.5);
+        context.fillText(displayName, x, y);
     }
 
     function draw() {
@@ -371,10 +375,12 @@
         placedItems.forEach(item => {
             ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.15 : 0.8;
             ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
+            
             if (item !== draggingItem) {
                 ctx.globalAlpha = 1.0;
                 drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w*baseGridSize);
             }
+
             if(item.range > 0 && item !== draggingItem) {
                 let shouldShowRange = false;
                 if(activePreview) {
@@ -398,8 +404,10 @@
             const occupied = isAreaOccupied(px, py, activePreview.w, activePreview.h, draggingItem);
             ctx.fillStyle = occupied ? 'red' : activePreview.color;
             ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
+            
             ctx.globalAlpha = 1.0;
             drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w*baseGridSize);
+
             if(activePreview.range > 0) {
                 ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
                 ctx.strokeRect((px-activePreview.range+0.5)*baseGridSize, (py-activePreview.range+0.5)*baseGridSize, (activePreview.range*2)*baseGridSize, (activePreview.range*2)*baseGridSize);
