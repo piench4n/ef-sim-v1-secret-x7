@@ -158,10 +158,12 @@
     </div>
     
     <div class="controls-hint">
-        <strong>【画面移動】</strong>マウスホイール押し込み<br>
-        <strong>【施設の設置/移動】</strong>左クリック/ドラッグ<br>
-        <strong>【施設の削除】</strong>右クリック<br>
-        <strong>【ズーム】</strong>マウスホイール(10%~150%)
+        <strong>【画面移動】</strong>ホイール押し込み<br>
+        <strong>【設置/移動】</strong>左クリック/ドラッグ<br>
+        <strong>【削除】</strong>右クリック<br>
+        <strong>【単体回転】</strong>移動/設置中に <strong>R</strong> キー<br>
+        <strong>【全体回転】</strong><strong>Ctrl + R</strong> キー<br>
+        <strong>【ズーム】</strong>ホイール(10%~150%)
     </div>
 </div>
 
@@ -315,7 +317,8 @@
     }
 
     function setTool(config) {
-        currentTool = config; renderButtons();
+        currentTool = JSON.parse(JSON.stringify(config));
+        renderButtons();
         document.getElementById('btn-eraser').classList.remove('active');
         document.getElementById('btn-move').classList.remove('active');
     }
@@ -332,14 +335,60 @@
         document.getElementById('btn-move').classList.add('active');
     }
 
-    // --- 修正：ラベルのテキストサイズを拡大し、描画を微調整 ---
+    function rotateItem(item) {
+        if (!item) return;
+        const temp = item.w;
+        item.w = item.h;
+        item.h = temp;
+    }
+
+    function rotateMap() {
+        placedItems.forEach(item => {
+            const oldX = item.x;
+            const oldY = item.y;
+            const oldW = item.w;
+            const oldH = item.h;
+            item.x = mapH - oldY - oldH;
+            item.y = oldX;
+            item.w = oldH;
+            item.h = oldW;
+        });
+        
+        if (mapW !== mapH) {
+            const selector = document.getElementById('map-ratio');
+            const currentRatio = selector.value;
+            const reversedRatio = currentRatio.split(':').reverse().join(':');
+            for (let i = 0; i < selector.options.length; i++) {
+                if (selector.options[i].value === reversedRatio) {
+                    selector.value = reversedRatio;
+                    changeMapRatio(reversedRatio);
+                    break;
+                }
+            }
+        }
+        updateStats();
+        autoSave();
+    }
+
+    window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if (e.ctrlKey && key === 'r') {
+            e.preventDefault();
+            if (!draggingItem) rotateMap();
+            return;
+        }
+        if (key === 'r') {
+            if (draggingItem) { rotateItem(draggingItem); } 
+            else if (currentTool && currentTool.id !== 'eraser') { rotateItem(currentTool); }
+        }
+    });
+
     function drawLabel(context, text, x, y, maxWidth) {
-        const padding = 6; // 余白を少し広めに
+        const padding = 6;
         const availableW = maxWidth - padding * 2;
-        context.font = "bold 13px sans-serif"; // 10px -> 13px
+        context.font = "bold 13px sans-serif";
         context.textAlign = "center";
         context.textBaseline = "middle";
-        
         let displayName = text;
         if (context.measureText(displayName).width > availableW) {
             while (displayName.length > 0 && context.measureText(displayName + "...").width > availableW) {
@@ -347,10 +396,7 @@
             }
             displayName += "...";
         }
-        
         if (context.measureText("...").width > availableW && availableW < 12) return;
-
-        // 影を少し強めて視認性を維持
         context.fillStyle = "rgba(0, 0, 0, 0.85)";
         context.fillText(displayName, x + 0.5, y + 0.5);
         context.fillStyle = "#fff";
@@ -375,12 +421,10 @@
         placedItems.forEach(item => {
             ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.15 : 0.8;
             ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
-            
             if (item !== draggingItem) {
                 ctx.globalAlpha = 1.0;
                 drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w*baseGridSize);
             }
-
             if(item.range > 0 && item !== draggingItem) {
                 let shouldShowRange = false;
                 if(activePreview) {
@@ -404,10 +448,8 @@
             const occupied = isAreaOccupied(px, py, activePreview.w, activePreview.h, draggingItem);
             ctx.fillStyle = occupied ? 'red' : activePreview.color;
             ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
-            
             ctx.globalAlpha = 1.0;
             drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w*baseGridSize);
-
             if(activePreview.range > 0) {
                 ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
                 ctx.strokeRect((px-activePreview.range+0.5)*baseGridSize, (py-activePreview.range+0.5)*baseGridSize, (activePreview.range*2)*baseGridSize, (activePreview.range*2)*baseGridSize);
@@ -432,7 +474,7 @@
             } else if (currentTool && currentTool.id !== 'eraser') {
                 const px = Math.min(mapW - currentTool.w, mouseGrid.x);
                 const py = Math.min(mapH - currentTool.h, mouseGrid.y);
-                if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { placedItems.push({ ...currentTool, x: px, y: py }); updateStats(); autoSave(); }
+                if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { placedItems.push(JSON.parse(JSON.stringify(currentTool))); placedItems[placedItems.length-1].x = px; placedItems[placedItems.length-1].y = py; updateStats(); autoSave(); }
             }
         }
         if (e.button === 2) { 
