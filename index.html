@@ -29,8 +29,7 @@
             width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--panel); border-right: 2px solid rgba(128,128,128,0.2); padding: 20px; 
             display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 100;
             transition: margin-left 0.3s ease, opacity 0.3s ease;
-            -ms-overflow-style: none; scrollbar-width: none;
-            box-sizing: border-box;
+            -ms-overflow-style: none; scrollbar-width: none; box-sizing: border-box;
         }
         #sidebar::-webkit-scrollbar { display: none; }
         body.sidebar-closed #sidebar { margin-left: calc(var(--sidebar-w) * -1); opacity: 0; pointer-events: none; }
@@ -39,8 +38,7 @@
             position: fixed; left: var(--sidebar-w); top: 10px; z-index: 110;
             background: var(--panel); border: 1px solid rgba(128,128,128,0.3); color: var(--accent);
             padding: 8px 12px; cursor: pointer; border-radius: 0 4px 4px 0;
-            transition: left 0.3s ease; font-weight: bold;
-            text-shadow: var(--text-outline);
+            transition: left 0.3s ease; font-weight: bold; text-shadow: var(--text-outline);
         }
         body.sidebar-closed #toggle-sidebar { left: 0; }
 
@@ -50,41 +48,42 @@
         label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; text-shadow: var(--text-outline); }
         h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); text-shadow: var(--text-outline); }
         
+        /* 収支パネル */
+        #summary-panel { font-size: 0.85em; line-height: 1.6; border-left: 3px solid var(--accent); padding-left: 10px; margin-bottom: 10px; }
+        .summary-item { display: flex; justify-content: space-between; }
+        .val-plus { color: var(--success); }
+        .val-minus { color: var(--danger); }
+
+        /* カテゴリ切替 */
+        .cat-container { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+        .cat-btn { font-size: 0.7em; padding: 4px 8px; background: var(--btn-idle); border: 1px solid var(--btn-border); color: var(--text); border-radius: 3px; cursor: pointer; }
+        .cat-btn.active { background: var(--accent); color: #000; font-weight: bold; }
+
         .tool-btn { 
-            width: 100%; padding: 10px 12px; margin: 0; 
+            width: 100%; padding: 8px 10px; margin: 2px 0; 
             background: var(--btn-idle); border: 1px solid var(--btn-border); 
             color: var(--text); cursor: pointer; text-align: left;
             transition: 0.2s; border-radius: 4px; 
-            font-size: 0.85em; display: flex; align-items: center; justify-content: space-between;
-            opacity: 0.8; box-sizing: border-box;
-            white-space: nowrap;
-            position: relative;
+            font-size: 0.8em; display: flex; align-items: center; justify-content: space-between;
+            opacity: 0.8; box-sizing: border-box; white-space: nowrap; position: relative;
         }
         .tool-btn:hover { background: rgba(255, 207, 0, 0.15); border-color: var(--accent); opacity: 1; }
         .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); opacity: 1; box-shadow: 0 0 10px rgba(255, 207, 0, 0.3); }
         
-        /* ツールチップの修正：ボタン内の右端に表示するように変更 */
-        .tool-btn::after {
-            content: attr(data-size);
-            font-size: 10px;
-            background: var(--tooltip-bg);
-            color: #fff;
-            padding: 2px 6px;
-            border-radius: 3px;
-            border: 1px solid var(--accent);
-            opacity: 0;
-            transition: opacity 0.2s;
-            pointer-events: none;
-            margin-left: 8px;
-            font-weight: normal;
-            text-shadow: none;
-        }
-        /* ホバー時のみ表示 */
-        .tool-btn:hover::after { opacity: 1; }
-        /* 選択中のボタンは黒文字なので、ツールチップ内の文字色も調整（任意） */
-        .tool-btn.active::after { color: #fff; }
+        /* 右側の統計数 */
+        .count-badge { font-size: 0.9em; opacity: 0.6; margin-left: auto; padding-right: 4px; }
+        .tool-btn.active .count-badge { color: #000; opacity: 1; }
 
-        .action-btn { font-weight: bold; justify-content: center; }
+        /* ツールチップ（サイズ表示）はホバー時のみ出現し、バッジを隠す */
+        .tool-btn::after {
+            content: attr(data-size); font-size: 9px; background: var(--tooltip-bg); color: #fff; padding: 2px 5px;
+            border-radius: 3px; border: 1px solid var(--accent); opacity: 0; transition: 0.2s;
+            pointer-events: none; position: absolute; right: 5px; font-weight: normal; text-shadow: none;
+        }
+        .tool-btn:hover::after { opacity: 1; }
+        .tool-btn:hover .count-badge { visibility: hidden; }
+
+        .action-btn { font-weight: bold; justify-content: center; text-align: center; }
         .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
         .save-btn:hover { opacity: 1; }
 
@@ -115,9 +114,20 @@
 
 <div id="sidebar">
     <h2>工業図面作成</h2>
+
+    <div class="tool-group">
+        <label>収支概算</label>
+        <div id="summary-panel">
+            <div class="summary-item"><span>電力:</span> <span id="sum-power">0</span></div>
+            <div class="summary-item"><span>資源量:</span> <span id="sum-resource">0</span></div>
+        </div>
+    </div>
     
     <div class="tool-group" id="dynamic-tools">
         <label>設備一覧</label>
+        <div class="cat-container" id="category-filters">
+            <button class="cat-btn active" onclick="filterCategory('all')">すべて</button>
+        </div>
         <div id="buildings-container">読み込み中...</div>
     </div>
 
@@ -180,6 +190,8 @@
     let placedItems = [];
     let currentTool = null;
     let mouseGrid = { x: 0, y: 0 };
+    let allBuildings = [];
+    let currentCategory = 'all';
 
     canvas.width = mapSize * baseGridSize;
     canvas.height = mapSize * baseGridSize;
@@ -198,9 +210,8 @@
 
     function centerMap() {
         const rect = mainArea.getBoundingClientRect();
-        const mapPxSize = mapSize * baseGridSize * scale;
-        offsetX = (rect.width - mapPxSize) / 2;
-        offsetY = (rect.height - mapPxSize) / 2;
+        offsetX = (rect.width - mapSize * baseGridSize * scale) / 2;
+        offsetY = (rect.height - mapSize * baseGridSize * scale) / 2;
         updateStatus();
     }
 
@@ -211,94 +222,89 @@
         setTimeout(centerMap, 310);
     }
 
-    function downloadImage() {
-        if (placedItems.length === 0) return alert("設備がありません。");
-        const expCanvas = document.getElementById('exportCanvas');
-        const expCtx = expCanvas.getContext('2d');
-        const res = mapSize * baseGridSize;
-        expCanvas.width = res; expCanvas.height = res;
-        const styles = getComputedStyle(document.body);
-        expCtx.fillStyle = styles.getPropertyValue('--bg').trim();
-        expCtx.fillRect(0, 0, res, res);
-        expCtx.strokeStyle = styles.getPropertyValue('--grid').trim();
-        expCtx.lineWidth = 1;
-        for(let i=0; i<=mapSize; i++) {
-            expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, res); expCtx.stroke();
-            expCtx.beginPath(); expCtx.moveTo(0, i*baseGridSize); expCtx.lineTo(res, i*baseGridSize); expCtx.stroke();
-        }
+    function updateStats() {
+        let power = 0;
+        let resource = 0;
+        const counts = {};
+
         placedItems.forEach(item => {
-            expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9;
-            expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
-            if(item.range > 0) {
-                expCtx.strokeStyle = '#ffcf00'; expCtx.lineWidth = 2; expCtx.setLineDash([8, 8]);
-                expCtx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
-                expCtx.setLineDash([]);
-            }
+            power += (item.power || 0);
+            resource += (item.resource || 0);
+            counts[item.id] = (counts[item.id] || 0) + 1;
         });
-        const link = document.createElement('a');
-        link.download = `endfield_plan_${new Date().toISOString().slice(0,10)}.png`;
-        link.href = expCanvas.toDataURL('image/png');
-        link.click();
+
+        // 収支パネル更新
+        const powerEl = document.getElementById('sum-power');
+        powerEl.innerText = (power > 0 ? "+" : "") + power;
+        powerEl.className = power >= 0 ? "val-plus" : "val-minus";
+
+        const resEl = document.getElementById('sum-resource');
+        resEl.innerText = (resource > 0 ? "+" : "") + resource;
+        resEl.className = resource >= 0 ? "val-plus" : "val-minus";
+
+        // ボタン内の設置数更新
+        allBuildings.forEach(b => {
+            const badge = document.getElementById(`count-${b.id}`);
+            if(badge) badge.innerText = counts[b.id] || 0;
+        });
     }
 
-    function autoLoad() {
-        const saved = localStorage.getItem('endfield_save');
-        if (saved) try { placedItems = JSON.parse(saved); } catch (e) {}
-    }
-    function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
-
-    function exportData() {
-        const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
-        const textFlow = document.getElementById('data-text');
-        textFlow.value = code;
-        textFlow.select();
-        alert("コードを書き出しました。");
-    }
-
-    function importData() {
-        const code = document.getElementById('data-text').value;
-        try {
-            const decoded = JSON.parse(decodeURIComponent(escape(atob(code))));
-            if (confirm("読み込みますか？")) { placedItems = decoded; autoSave(); }
-        } catch (e) { alert("無効なコードです"); }
+    function filterCategory(cat) {
+        currentCategory = cat;
+        document.querySelectorAll('.cat-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.innerText === (cat === 'all' ? 'すべて' : cat));
+        });
+        renderButtons();
     }
 
     async function loadConfig() {
         try {
             const response = await fetch('data.json?t=' + new Date().getTime());
             const data = await response.json();
-            renderButtons(data.buildings); 
+            allBuildings = data.buildings;
+            
+            // カテゴリボタンの生成
+            const cats = [...new Set(allBuildings.map(b => b.category))];
+            const catContainer = document.getElementById('category-filters');
+            cats.forEach(c => {
+                const btn = document.createElement('button');
+                btn.className = 'cat-btn';
+                btn.innerText = c;
+                btn.onclick = () => filterCategory(c);
+                catContainer.appendChild(btn);
+            });
+
+            renderButtons();
             autoLoad();
             loadTheme();
             centerMap();
+            updateStats();
         } catch (err) { document.getElementById('buildings-container').innerHTML = "JSONエラー"; }
     }
 
-    function renderButtons(buildings) {
+    function renderButtons() {
         const container = document.getElementById('buildings-container');
         container.innerHTML = '';
-        buildings.forEach((b, index) => {
+        allBuildings.filter(b => currentCategory === 'all' || b.category === currentCategory).forEach((b, index) => {
             const btn = document.createElement('button');
-            btn.className = 'tool-btn';
+            btn.className = 'tool-btn' + (currentTool && currentTool.id === b.id ? ' active' : '');
             btn.id = 'btn-' + b.id;
-            btn.innerHTML = `<span>${b.name}</span>`; 
+            btn.innerHTML = `<span>${b.name}</span><span class="count-badge" id="count-${b.id}">0</span>`; 
             btn.setAttribute('data-size', `${b.w}×${b.h}`);
             btn.onclick = () => setTool(b);
             container.appendChild(btn);
-            if (index === 0) setTool(b);
         });
     }
 
     function setTool(config) {
         currentTool = config;
-        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-        const activeBtn = document.getElementById('btn-' + config.id);
-        if(activeBtn) activeBtn.classList.add('active');
+        renderButtons();
+        document.getElementById('btn-eraser').classList.remove('active');
     }
 
     function setEraser() {
         currentTool = { id: 'eraser' };
-        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        renderButtons();
         document.getElementById('btn-eraser').classList.add('active');
     }
 
@@ -309,11 +315,11 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.translate(offsetX, offsetY);
         ctx.scale(scale, scale);
-        const fullSize = mapSize * baseGridSize;
+        
         ctx.strokeStyle = gridColor; ctx.lineWidth = 1/scale;
         for(let i=0; i<=mapSize; i++) {
-            ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, fullSize); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, i*baseGridSize); ctx.lineTo(fullSize, i*baseGridSize); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapSize*baseGridSize); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i*baseGridSize); ctx.lineTo(mapSize*baseGridSize, i*baseGridSize); ctx.stroke();
         }
         placedItems.forEach(item => {
             ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.3 : 0.8;
@@ -328,50 +334,38 @@
             ctx.globalAlpha = 0.4;
             const px = Math.min(mapSize - currentTool.w, mouseGrid.x);
             const py = Math.min(mapSize - currentTool.h, mouseGrid.y);
-            const occupied = isAreaOccupied(px, py, currentTool.w, currentTool.h);
-            ctx.fillStyle = occupied ? 'red' : currentTool.color;
+            ctx.fillStyle = isAreaOccupied(px, py, currentTool.w, currentTool.h) ? 'red' : currentTool.color;
             ctx.fillRect(px*baseGridSize, py*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
         }
-        if(draggingItem) {
-            ctx.globalAlpha = 0.6;
-            const px = Math.min(mapSize - draggingItem.w, mouseGrid.x);
-            const py = Math.min(mapSize - draggingItem.h, mouseGrid.y);
-            const occupied = isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem);
-            ctx.fillStyle = occupied ? 'red' : draggingItem.color;
-            ctx.fillRect(px*baseGridSize, py*baseGridSize, draggingItem.w*baseGridSize, draggingItem.h*baseGridSize);
-        }
-        ctx.globalAlpha = 1.0;
         requestAnimationFrame(draw);
     }
 
     function isAreaOccupied(x, y, w, h, ignoreItem = null) {
-        return placedItems.some(item => {
-            if (item === ignoreItem) return false;
-            return x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y;
-        });
+        return placedItems.some(item => (item !== ignoreItem) && (x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y));
     }
 
     mainArea.addEventListener('mousedown', (e) => {
         if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
         if (e.button === 0) {
             const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
-            if (currentTool && currentTool.id === 'eraser') { if (target) { placedItems = placedItems.filter(i => i !== target); autoSave(); }
+            if (currentTool && currentTool.id === 'eraser') { if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
             } else if (target) { draggingItem = target; dragStartPos = { x: target.x, y: target.y }; mainArea.classList.add('dragging-item');
             } else if (currentTool) {
                 const px = Math.min(mapSize - currentTool.w, mouseGrid.x);
                 const py = Math.min(mapSize - currentTool.h, mouseGrid.y);
-                const occupied = isAreaOccupied(px, py, currentTool.w, currentTool.h);
-                if (!occupied) { placedItems.push({ ...currentTool, x: px, y: py }); autoSave(); }
+                if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { placedItems.push({ ...currentTool, x: px, y: py }); updateStats(); autoSave(); }
             }
         }
-        if (e.button === 2) { placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h)); autoSave(); }
+        if (e.button === 2) { 
+            placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h)); 
+            updateStats(); autoSave(); 
+        }
     });
 
     window.addEventListener('mousemove', (e) => {
         const rect = mainArea.getBoundingClientRect();
-        const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
         if (isDraggingMap) { offsetX += e.clientX - lastMousePos.x; offsetY += e.clientY - lastMousePos.y; lastMousePos = { x: e.clientX, y: e.clientY }; }
-        const worldX = (mx - offsetX) / scale; const worldY = (my - offsetY) / scale;
+        const worldX = (e.clientX - rect.left - offsetX) / scale; const worldY = (e.clientY - rect.top - offsetY) / scale;
         mouseGrid.x = Math.max(0, Math.min(mapSize, Math.floor(worldX / baseGridSize)));
         mouseGrid.y = Math.max(0, Math.min(mapSize, Math.floor(worldY / baseGridSize)));
         updateStatus();
@@ -381,10 +375,9 @@
         if (draggingItem) {
             const px = Math.min(mapSize - draggingItem.w, mouseGrid.x);
             const py = Math.min(mapSize - draggingItem.h, mouseGrid.y);
-            const occupied = isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem);
-            if (!occupied) { draggingItem.x = px; draggingItem.y = py; }
+            if (!isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem)) { draggingItem.x = px; draggingItem.y = py; }
             else { draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; }
-            draggingItem = null; autoSave();
+            draggingItem = null; updateStats(); autoSave();
         }
         isDraggingMap = false; mainArea.classList.remove('dragging-map', 'dragging-item');
     });
@@ -404,7 +397,47 @@
     }, { passive: false });
 
     function updateStatus() { document.getElementById('status').innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; }
-    function clearCanvas() { if(confirm('配置したすべての設備を削除しますか？')) { placedItems = []; autoSave(); } }
+    function clearCanvas() { if(confirm('配置したすべての設備を削除しますか？')) { placedItems = []; updateStats(); autoSave(); } }
+    function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
+    function autoLoad() { const saved = localStorage.getItem('endfield_save'); if (saved) try { placedItems = JSON.parse(saved); } catch (e) {} }
+
+    function downloadImage() {
+        if (placedItems.length === 0) return alert("設備がありません。");
+        const expCanvas = document.getElementById('exportCanvas');
+        const expCtx = expCanvas.getContext('2d');
+        const res = mapSize * baseGridSize;
+        expCanvas.width = res; expCanvas.height = res;
+        const styles = getComputedStyle(document.body);
+        expCtx.fillStyle = styles.getPropertyValue('--bg').trim();
+        expCtx.fillRect(0, 0, res, res);
+        expCtx.strokeStyle = styles.getPropertyValue('--grid').trim();
+        expCtx.lineWidth = 1;
+        for(let i=0; i<=mapSize; i++) {
+            expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, res); expCtx.stroke();
+            expCtx.beginPath(); expCtx.moveTo(0, i*baseGridSize); expCtx.lineTo(res, i*baseGridSize); expCtx.stroke();
+        }
+        placedItems.forEach(item => {
+            expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9;
+            expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
+        });
+        const link = document.createElement('a');
+        link.download = `endfield_plan.png`;
+        link.href = expCanvas.toDataURL('image/png');
+        link.click();
+    }
+
+    function exportData() {
+        const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
+        document.getElementById('data-text').value = code;
+        alert("コードを書き出しました。");
+    }
+
+    function importData() {
+        try {
+            const decoded = JSON.parse(decodeURIComponent(escape(atob(document.getElementById('data-text').value))));
+            if (confirm("読み込みますか？")) { placedItems = decoded; updateStats(); autoSave(); }
+        } catch (e) { alert("無効なコードです"); }
+    }
     
     window.addEventListener('resize', centerMap);
     loadConfig(); draw();
