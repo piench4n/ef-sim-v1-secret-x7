@@ -106,7 +106,7 @@
         .modal-btns { display: flex; gap: 10px; justify-content: center; }
         .modal-btn { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; min-width: 80px; }
         .modal-confirm { background: var(--accent); color: #000; }
-       .modal-cancel { background: var(--btn-idle); color: var(--text); border: 1px solid var(--btn-border); }
+        .modal-cancel { background: var(--btn-idle); color: var(--text); border: 1px solid var(--btn-border); }
     </style>
 </head>
 <body>
@@ -160,7 +160,7 @@
     <div class="controls-hint">
         <strong>【画面移動】</strong>ホイール押し込み<br>
         <strong>【設置/移動】</strong>左クリック/ドラッグ<br>
-      <strong>【削除】</strong>右クリック<br>
+        <strong>【削除】</strong>右クリック<br>
         <strong>【単体回転】</strong>移動/設置中に <strong>R</strong> キー<br>
         <strong>【全体回転】</strong><strong>Ctrl + R</strong> キー<br>
         <strong>【ズーム】</strong>ホイール(30%~150%)
@@ -289,7 +289,7 @@
             allBuildings = data.buildings || [];
             const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
             const catContainer = document.getElementById('category-filters');
-            cats.forEach(c => {
+  min       cats.forEach(c => {
                 const btn = document.createElement('button');
                 btn.className = 'cat-btn';
                 btn.innerText = c;
