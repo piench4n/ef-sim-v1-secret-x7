@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Endfield Industrial Planner - Web Edition</title>
+    <style>
+        :root { --bg: #1a1c1e; --panel: #2d2f31; --accent: #ffcf00; --text: #e0e0e0; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        #sidebar { width: 280px; background: var(--panel); border-right: 2px solid #444; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        .tool-group { border: 1px solid #555; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+        .tool-btn { 
+            width: 100%; padding: 12px; margin: 5px 0; background: #3d3f41; border: 1px solid #555; 
+            color: white; cursor: pointer; text-align: left; transition: 0.2s; border-radius: 4px;
+        }
+        .tool-btn:hover { background: #4d4f51; }
+        .tool-btn.active { background: var(--accent); color: black; font-weight: bold; }
+        #main { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; overflow: auto; background: radial-gradient(#333 1px, transparent 1px); background-size: 30px 30px; }
+        canvas { background: rgba(0,0,0,0.5); box-shadow: 0 0 20px rgba(0,0,0,0.5); cursor: crosshair; }
+        .status-bar { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 5px 10px; font-size: 12px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>工業設計端末</h2>
+    <div id="dynamic-tools">
+        <p style="font-size: 0.8em; color: #888;">データを読み込み中...</p>
+    </div>
+
+    <div class="tool-group">
+        <label>基本操作</label>
+        <button class="tool-btn" onclick="setEraser()" id="btn-eraser">❌ 撤去モード</button>
+        <button class="tool-btn" onclick="clearCanvas()" style="color:#ff6b6b">🗑 全消去</button>
+    </div>
+</div>
+
+<div id="main">
+    <canvas id="gridCanvas"></canvas>
+    <div class="status-bar" id="status">座標: 0, 0</div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gridCanvas');
+    const ctx = canvas.getContext('2d');
+    const gridSize = 30;
+    const mapSize = 50;
+    
+    canvas.width = mapSize * gridSize;
+    canvas.height = mapSize * gridSize;
+
+    let placedItems = [];
+    let currentTool = null;
+    let mouseGrid = { x: 0, y: 0 };
+
+    // --- JSONデータの読み込み ---
+    async function loadConfig() {
+        try {
+            const response = await fetch('data.json'); // 同じフォルダのJSONを読み込む
+            const data = await response.json();
+            renderButtons(data.buildings);
+        } catch (err) {
+            console.error("データの読み込みに失敗しました:", err);
+            document.getElementById('dynamic-tools').innerHTML = "<p style='color:red'>データ読み込みエラー</p>";
+        }
+    }
+
+    function renderButtons(buildings) {
+        const container = document.getElementById('dynamic-tools');
+        container.innerHTML = '<label>登録済み設備</label>';
+        buildings.forEach((b, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'tool-btn';
+            btn.id = 'btn-' + b.id;
+            btn.innerHTML = `${b.name} (${b.w}x${b.h})`;
+            btn.onclick = () => setTool(b);
+            container.appendChild(btn);
+            
+            // 最初のアイテムをデフォルト選択
+            if (index === 0) setTool(b);
+        });
+    }
+
+    function setTool(config) {
+        currentTool = config;
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn-' + config.id).classList.add('active');
+    }
+
+    function setEraser() {
+        currentTool = { id: 'eraser' };
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn-eraser').classList.add('active');
+    }
+
+    // --- 描画・操作ロジック (基本は前回と同じ) ---
+    function isAreaOccupied(x, y, w, h) {
+        return placedItems.some(item => x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#333';
+        for(let i=0; i<=mapSize; i++) {
+            ctx.beginPath(); ctx.moveTo(i*gridSize, 0); ctx.lineTo(i*gridSize, canvas.height); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i*gridSize); ctx.lineTo(canvas.width, i*gridSize); ctx.stroke();
+        }
+
+        placedItems.forEach(item => {
+            ctx.fillStyle = item.color;
+            ctx.globalAlpha = 0.8;
+            ctx.fillRect(item.x*gridSize+1, item.y*gridSize+1, item.w*gridSize-2, item.h*gridSize-2);
+            if(item.range > 0) {
+                ctx.strokeStyle = '#ffcf00';
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect((item.x - item.range + 0.5)*gridSize, (item.y - item.range + 0.5)*gridSize, (item.range*2)*gridSize, (item.range*2)*gridSize);
+                ctx.setLineDash([]);
+            }
+        });
+
+        if(currentTool && currentTool.id !== 'eraser') {
+            ctx.globalAlpha = 0.4;
+            const canPlace = !isAreaOccupied(mouseGrid.x, mouseGrid.y, currentTool.w, currentTool.h);
+            ctx.fillStyle = canPlace ? currentTool.color : 'red';
+            ctx.fillRect(mouseGrid.x*gridSize, mouseGrid.y*gridSize, currentTool.w*gridSize, currentTool.h*gridSize);
+        }
+        ctx.globalAlpha = 1.0;
+        requestAnimationFrame(draw);
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        mouseGrid.x = Math.floor((e.clientX - rect.left) / gridSize);
+        mouseGrid.y = Math.floor((e.clientY - rect.top) / gridSize);
+        document.getElementById('status').innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y}`;
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+        if (e.button === 0 && currentTool.id !== 'eraser') {
+            if (!isAreaOccupied(mouseGrid.x, mouseGrid.y, currentTool.w, currentTool.h)) {
+                placedItems.push({ ...currentTool, x: mouseGrid.x, y: mouseGrid.y });
+            }
+        } else {
+            placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h));
+        }
+    });
+
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    function clearCanvas() { if(confirm('全て消去しますか？')) placedItems = []; }
+
+    loadConfig();
+    draw();
+</script>
+</body>
+</html>
