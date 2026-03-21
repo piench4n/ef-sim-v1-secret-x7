@@ -92,6 +92,23 @@
         .controls-hint { font-size: 0.7em; color: #888; line-height: 1.6; background: rgba(128,128,128,0.1); padding: 10px; border-radius: 4px; border-left: 3px solid var(--accent); }
         textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
         .warning-text { font-size: 0.65em; color: var(--warning); margin-top: 8px; line-height: 1.4; border-top: 1px dashed rgba(128,128,128,0.3); padding-top: 8px; }
+
+        /* --- カスタムモーダル --- */
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        #modal-box {
+            background: var(--panel); border: 2px solid var(--accent); padding: 25px; border-radius: 8px;
+            max-width: 400px; width: 90%; text-align: center; box-shadow: 0 0 20px rgba(255, 207, 0, 0.2);
+        }
+        #modal-text { margin-bottom: 20px; font-size: 0.95em; line-height: 1.5; }
+        .modal-btns { display: flex; gap: 10px; justify-content: center; }
+        .modal-btn { 
+            padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; min-width: 80px; 
+        }
+        .modal-confirm { background: var(--accent); color: #000; }
+        .modal-cancel { background: var(--btn-idle); color: var(--text); border: 1px solid var(--btn-border); }
     </style>
 </head>
 <body>
@@ -127,7 +144,7 @@
         <label>基本操作</label>
         <div class="grid-2">
             <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser">削除モード</button>
-            <button class="tool-btn action-btn" onclick="clearCanvas()" style="color:var(--danger)">すべて削除</button>
+            <button class="tool-btn action-btn" onclick="confirmClear()" style="color:var(--danger)">すべて削除</button>
         </div>
     </div>
 
@@ -135,7 +152,7 @@
         <label>設計図コード</label>
         <div class="grid-2">
             <button class="tool-btn action-btn" onclick="exportData()">書き出し</button>
-            <button class="tool-btn action-btn" onclick="importData()">読み込み</button>
+            <button class="tool-btn action-btn" onclick="confirmImport()">読み込み</button>
             <textarea id="data-text" placeholder="ここにコードを入力/出力" style="grid-column: span 2;"></textarea>
             <button class="tool-btn action-btn save-btn" onclick="downloadImage()">画像を保存 (PNG)</button>
         </div>
@@ -153,6 +170,16 @@
 <div id="main">
     <canvas id="gridCanvas"></canvas>
     <div class="status-bar" id="status">座標: 0, 0 | ズーム: 25%</div>
+</div>
+
+<div id="modal-overlay">
+    <div id="modal-box">
+        <div id="modal-text"></div>
+        <div class="modal-btns">
+            <button id="modal-cancel-btn" class="modal-btn modal-cancel">キャンセル</button>
+            <button id="modal-ok-btn" class="modal-btn modal-confirm">OK</button>
+        </div>
+    </div>
 </div>
 
 <canvas id="exportCanvas" style="display:none;"></canvas>
@@ -178,10 +205,50 @@
     let allBuildings = [];
     let currentCategory = 'all';
 
+    // モーダル管理
+    function showModal(text, isConfirm, onOk) {
+        const overlay = document.getElementById('modal-overlay');
+        const textEl = document.getElementById('modal-text');
+        const okBtn = document.getElementById('modal-ok-btn');
+        const cancelBtn = document.getElementById('modal-cancel-btn');
+
+        textEl.innerText = text;
+        overlay.style.display = 'flex';
+        cancelBtn.style.display = isConfirm ? 'inline-block' : 'none';
+
+        okBtn.onclick = () => { overlay.style.display = 'none'; onOk(); };
+        cancelBtn.onclick = () => { overlay.style.display = 'none'; };
+    }
+
+    function confirmClear() {
+        showModal('配置したすべての設備を削除しますか？', true, () => {
+            placedItems = []; updateStats(); autoSave();
+        });
+    }
+
+    function confirmImport() {
+        showModal('設計図を読み込みますか？現在の配置は上書きされます。', true, () => {
+            const dataArea = document.getElementById('data-text');
+            try {
+                const decoded = JSON.parse(decodeURIComponent(escape(atob(dataArea.value))));
+                placedItems = decoded; updateStats(); autoSave();
+            } catch (e) { showModal('無効なコードです', false, () => {}); }
+        });
+    }
+
+    function exportData() {
+        const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
+        const dataArea = document.getElementById('data-text');
+        if(dataArea) { 
+            dataArea.value = code; 
+            showModal('コードを書き出しました。コピーして保存してください。', false, () => {});
+        }
+    }
+
+    // --- 以下、既存のロジック ---
     function changeMapRatio(val) {
         const [w, h] = val.split(':').map(Number);
-        mapW = w;
-        mapH = h;
+        mapW = w; mapH = h;
         canvas.width = mapW * baseGridSize;
         canvas.height = mapH * baseGridSize;
         centerMap();
@@ -230,10 +297,8 @@
     async function loadConfig() {
         try {
             const response = await fetch('data.json?t=' + new Date().getTime());
-            if (!response.ok) throw new Error("File not found");
             const data = await response.json();
             allBuildings = data.buildings || [];
-            
             const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
             const catContainer = document.getElementById('category-filters');
             cats.forEach(c => {
@@ -243,15 +308,8 @@
                 btn.onclick = () => filterCategory(c);
                 catContainer.appendChild(btn);
             });
-
-            changeMapRatio("40:40");
-            renderButtons();
-            autoLoad();
-            updateStats();
-        } catch (err) { 
-            console.error(err);
-            document.getElementById('buildings-container').innerHTML = "JSON読み込みエラー"; 
-        }
+            changeMapRatio("40:40"); renderButtons(); autoLoad(); updateStats();
+        } catch (err) { document.getElementById('buildings-container').innerHTML = "JSON読み込みエラー"; }
     }
 
     function renderButtons() {
@@ -259,7 +317,6 @@
         if(!container) return;
         container.innerHTML = '';
         const filtered = allBuildings.filter(b => currentCategory === 'all' || b.category === currentCategory);
-        
         filtered.forEach(b => {
             const btn = document.createElement('button');
             btn.className = 'tool-btn' + (currentTool && currentTool.id === b.id ? ' active' : '');
@@ -273,15 +330,13 @@
     }
 
     function setTool(config) {
-        currentTool = config;
-        renderButtons();
+        currentTool = config; renderButtons();
         const eraserBtn = document.getElementById('btn-eraser');
         if(eraserBtn) eraserBtn.classList.remove('active');
     }
 
     function setEraser() {
-        currentTool = { id: 'eraser' };
-        renderButtons();
+        currentTool = { id: 'eraser' }; renderButtons();
         const eraserBtn = document.getElementById('btn-eraser');
         if(eraserBtn) eraserBtn.classList.add('active');
     }
@@ -291,17 +346,14 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.translate(offsetX, offsetY);
         ctx.scale(scale, scale);
-        
         ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
         ctx.lineWidth = 1/scale;
-        
         for(let i=0; i<=mapW; i++) {
             ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke();
         }
         for(let j=0; j<=mapH; j++) {
             ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke();
         }
-
         placedItems.forEach(item => {
             ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.3 : 0.8;
             ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
@@ -311,7 +363,6 @@
                 ctx.setLineDash([]);
             }
         });
-
         if(currentTool && currentTool.id !== 'eraser' && !draggingItem) {
             ctx.globalAlpha = 0.4;
             const px = Math.min(mapW - currentTool.w, mouseGrid.x);
@@ -382,47 +433,22 @@
         const statusEl = document.getElementById('status');
         if(statusEl) statusEl.innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; 
     }
-    function clearCanvas() { if(confirm('配置したすべての設備を削除しますか？')) { placedItems = []; updateStats(); autoSave(); } }
     function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
     function autoLoad() { const saved = localStorage.getItem('endfield_save'); if (saved) try { placedItems = JSON.parse(saved); } catch (e) {} }
 
     function downloadImage() {
-        if (placedItems.length === 0) return alert("設備がありません。");
+        if (placedItems.length === 0) return showModal("設備がありません。", false, ()=>{});
         const expCanvas = document.getElementById('exportCanvas');
         const expCtx = expCanvas.getContext('2d');
-        expCanvas.width = mapW * baseGridSize;
-        expCanvas.height = mapH * baseGridSize;
+        expCanvas.width = mapW * baseGridSize; expCanvas.height = mapH * baseGridSize;
         expCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg').trim();
         expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
         expCtx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
         expCtx.lineWidth = 1;
-        for(let i=0; i<=mapW; i++) {
-            expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, expCanvas.height); expCtx.stroke();
-        }
-        for(let j=0; j<=mapH; j++) {
-            expCtx.beginPath(); expCtx.moveTo(0, j*baseGridSize); expCtx.lineTo(expCanvas.width, j*baseGridSize); expCtx.stroke();
-        }
-        placedItems.forEach(item => {
-            expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9;
-            expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
-        });
-        const link = document.createElement('a');
-        link.download = `endfield_plan.png`; link.href = expCanvas.toDataURL('image/png'); link.click();
-    }
-
-    function exportData() {
-        const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
-        const dataArea = document.getElementById('data-text');
-        if(dataArea) { dataArea.value = code; alert("コードを書き出しました。"); }
-    }
-
-    function importData() {
-        const dataArea = document.getElementById('data-text');
-        if(!dataArea) return;
-        try {
-            const decoded = JSON.parse(decodeURIComponent(escape(atob(dataArea.value))));
-            if (confirm("読み込みますか？")) { placedItems = decoded; updateStats(); autoSave(); }
-        } catch (e) { alert("無効なコードです"); }
+        for(let i=0; i<=mapW; i++) { expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, expCanvas.height); expCtx.stroke(); }
+        for(let j=0; j<=mapH; j++) { expCtx.beginPath(); expCtx.moveTo(0, j*baseGridSize); expCtx.lineTo(expCanvas.width, j*baseGridSize); expCtx.stroke(); }
+        placedItems.forEach(item => { expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9; expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2); });
+        const link = document.createElement('a'); link.download = `endfield_plan.png`; link.href = expCanvas.toDataURL('image/png'); link.click();
     }
     
     window.addEventListener('resize', centerMap);
