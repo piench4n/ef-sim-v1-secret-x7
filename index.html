@@ -37,6 +37,7 @@
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0; }
 
         label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+        h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); }
         
         #summary-panel { font-size: 0.85em; line-height: 1.6; border-bottom: 1px solid var(--btn-border); padding-bottom: 8px; margin-bottom: 12px; }
         .summary-item { display: flex; justify-content: space-between; }
@@ -115,10 +116,10 @@
     <div class="tool-group">
         <label>マップ設定</label>
         <select id="map-ratio" onchange="changeMapRatio(this.value)">
-            <option value="1:1">正方形 (100×100)</option>
-            <option value="4:3">標準 (120×90)</option>
-            <option value="16:9">ワイド (160×90)</option>
-            <option value="2:1">パノラマ (200×100)</option>
+            <option value="40:40">40 × 40</option>
+            <option value="50:50">50 × 50</option>
+            <option value="70:70">70 × 70</option>
+            <option value="80:80">80 × 80</option>
         </select>
     </div>
 
@@ -162,8 +163,8 @@
     const mainArea = document.getElementById('main');
     const baseGridSize = 30;
     
-    let mapW = 100;
-    let mapH = 100;
+    let mapW = 40;
+    let mapH = 40;
     let scale = 0.25; 
     let offsetX = 0;
     let offsetY = 0;
@@ -177,10 +178,8 @@
     let allBuildings = [];
     let currentCategory = 'all';
 
-    function changeMapRatio(ratio) {
-        const [w, h] = ratio === "1:1" ? [100, 100] : 
-                      ratio === "4:3" ? [120, 90] :
-                      ratio === "16:9" ? [160, 90] : [200, 100];
+    function changeMapRatio(val) {
+        const [w, h] = val.split(':').map(Number);
         mapW = w;
         mapH = h;
         canvas.width = mapW * baseGridSize;
@@ -209,10 +208,8 @@
             if(item.power < 0) power += item.power;
             counts[item.id] = (counts[item.id] || 0) + 1;
         });
-        // 絶対値を表示（マイナスを消す）
         const pEl = document.getElementById('sum-power');
         if(pEl) pEl.innerText = Math.abs(power);
-
         if(allBuildings) {
             allBuildings.forEach(b => {
                 const badge = document.getElementById(`count-${b.id}`);
@@ -247,7 +244,7 @@
                 catContainer.appendChild(btn);
             });
 
-            changeMapRatio("1:1");
+            changeMapRatio("40:40");
             renderButtons();
             autoLoad();
             updateStats();
@@ -298,7 +295,6 @@
         ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
         ctx.lineWidth = 1/scale;
         
-        // グリッド描画
         for(let i=0; i<=mapW; i++) {
             ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke();
         }
