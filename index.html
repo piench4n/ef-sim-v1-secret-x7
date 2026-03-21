@@ -21,7 +21,6 @@
 
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
         
-        /* サイドバー：物理的な幅の制御 */
         #sidebar { 
             width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--panel); border-right: 2px solid rgba(128,128,128,0.2); padding: 20px; 
             display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 100;
@@ -30,8 +29,6 @@
             box-sizing: border-box;
         }
         #sidebar::-webkit-scrollbar { display: none; }
-        
-        /* 閉じている時は左に突き出す */
         body.sidebar-closed #sidebar { margin-left: calc(var(--sidebar-w) * -1); opacity: 0; pointer-events: none; }
 
         #toggle-sidebar {
@@ -68,10 +65,8 @@
         #main.dragging-item { cursor: move; }
         canvas { display: block; }
         
-        /* ステータスバー：常にサイドバーの「外側」に配置されるよう計算 */
         .status-bar { 
             position: fixed; bottom: 15px; 
-            /* サイドバーが開いている時はその幅+余白、閉じている時は最小余白 */
             left: calc(var(--sidebar-w) + 20px);
             background: rgba(0,0,0,0.8); padding: 6px 14px; font-size: 12px; border-radius: 4px; 
             z-index: 90; pointer-events: none; 
@@ -97,14 +92,14 @@
 
     <div class="tool-group">
         <label>基本操作</label>
-        <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser"><span>❌</span> 撤去モード</button>
-        <button class="tool-btn action-btn" onclick="clearCanvas()" style="color:var(--danger)"><span>🗑</span> 全消去</button>
+        <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser"><span>❌</span> 削除モード</button>
+        <button class="tool-btn action-btn" onclick="clearCanvas()" style="color:var(--danger)"><span>🗑</span> すべて削除</button>
     </div>
 
     <div class="tool-group" id="save-area">
-        <label>設計図の保存 / 読み込み</label>
-        <button class="tool-btn action-btn" onclick="exportData()"><span>📤</span> コードを書き出す</button>
-        <button class="tool-btn action-btn" onclick="importData()"><span>📥</span> コードから読み込む</button>
+        <label>設計図コードの書き出し / 読み込み</label>
+        <button class="tool-btn action-btn" onclick="exportData()"><span>📤</span> コード書き出し</button>
+        <button class="tool-btn action-btn" onclick="importData()"><span>📥</span> コード読み込み</button>
         <textarea id="data-text" placeholder="ここにコードを入力/出力"></textarea>
         <button class="tool-btn action-btn save-btn" onclick="downloadImage()"><span>💾</span> 画像として保存 (PNG)</button>
         <div class="warning-text">⚠️ 履歴削除等でデータが消えるため、コードの書き出し保存を推奨。</div>
@@ -120,7 +115,7 @@
     
     <div class="controls-hint">
         <strong>【操作ヘルプ】</strong><br>
-        ・移動：ホイール押し込み<br>
+        ・移動：マウスホイール押し込み<br>
         ・設置/移動：左クリック/ドラッグ<br>
         ・削除：右クリック<br>
         ・ズーム：ホイール(25%~150%)
@@ -179,7 +174,6 @@
         document.body.classList.toggle('sidebar-closed');
         const btn = document.getElementById('toggle-sidebar');
         btn.innerText = document.body.classList.contains('sidebar-closed') ? '▶' : '◀';
-        // 物理的な幅の変化が終わるのを待ってから中央寄せ
         setTimeout(centerMap, 310);
     }
 
@@ -364,7 +358,7 @@
     }, { passive: false });
 
     function updateStatus() { document.getElementById('status').innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; }
-    function clearCanvas() { if(confirm('全て消去しますか？')) { placedItems = []; autoSave(); } }
+    function clearCanvas() { if(confirm('配置したすべての設備を削除しますか？')) { placedItems = []; autoSave(); } }
     
     window.addEventListener('resize', centerMap);
     loadConfig(); draw();
