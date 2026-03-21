@@ -13,7 +13,16 @@
             width: 280px; background: var(--panel); border-right: 2px solid #444; padding: 20px; 
             display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 100;
             transition: transform 0.3s ease; position: relative;
+            
+            /* スクロールバーを非表示にする設定 */
+            -ms-overflow-style: none;  /* IE, Edge用 */
+            scrollbar-width: none;  /* Firefox用 */
         }
+        /* Chrome, Safari用スクロールバー非表示 */
+        #sidebar::-webkit-scrollbar {
+            display: none;
+        }
+
         body.sidebar-closed #sidebar { transform: translateX(-280px); width: 0; padding: 0; border: none; }
 
         /* サイドバー開閉ボタン */
@@ -40,10 +49,10 @@
         #main.dragging-item { cursor: move; }
         canvas { display: block; }
         
-        /* ステータスバー位置調整（サイドバーの幅に合わせて動く） */
+        /* ステータスバー位置調整 */
         .status-bar { 
             position: fixed; bottom: 10px; 
-            left: calc(280px + 20px); /* サイドバー幅 + 余白 */
+            left: calc(280px + 20px); 
             background: rgba(0,0,0,0.7); padding: 5px 12px; font-size: 12px; border-radius: 4px; 
             z-index: 90; pointer-events: none; transition: left 0.3s ease; 
             border: 1px solid #444; color: #fff;
@@ -90,13 +99,13 @@
         ・移動：マウスホイール押し込み<br>
         ・設置/移動：左クリック/ドラッグ<br>
         ・削除：右クリック<br>
-        ・ズーム：マウスホイール(20%~150%)
+        ・ズーム：マウスホイール(25%~150%)
     </div>
 </div>
 
 <div id="main">
     <canvas id="gridCanvas"></canvas>
-    <div class="status-bar" id="status">座標: 0, 0 | ズーム: 20%</div>
+    <div class="status-bar" id="status">座標: 0, 0 | ズーム: 25%</div>
 </div>
 
 <canvas id="exportCanvas" style="display:none;"></canvas>
@@ -108,7 +117,7 @@
     const baseGridSize = 30;
     const mapSize = 100;
     
-    let scale = 0.2; 
+    let scale = 0.25; 
     let offsetX = 0;
     let offsetY = 0;
     let isDraggingMap = false;
@@ -197,7 +206,7 @@
 
     function renderButtons(buildings) {
         const container = document.getElementById('dynamic-tools');
-        container.innerHTML = '<label>登録済み設備</label>';
+        container.innerHTML = '<label>設備一覧</label>'; // 表記変更
         buildings.forEach((b, index) => {
             const btn = document.createElement('button');
             btn.className = 'tool-btn';
@@ -300,8 +309,8 @@
     mainArea.addEventListener('contextmenu', e => e.preventDefault());
     mainArea.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.08 : 0.08;
-        const newScale = Math.min(Math.max(0.2, scale + delta), 1.5);
+        const delta = e.deltaY > 0 ? -0.05 : 0.05;
+        const newScale = Math.min(Math.max(0.25, scale + delta), 1.5);
         if (newScale !== scale) {
             const rect = mainArea.getBoundingClientRect();
             const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
