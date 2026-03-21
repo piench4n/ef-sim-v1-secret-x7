@@ -11,7 +11,6 @@
             --btn-idle: rgba(255, 255, 255, 0.05);
             --btn-border: rgba(128, 128, 128, 0.3);
             --sidebar-w: 280px;
-            /* ダークテーマ用テキスト縁取り（基本は不要だがスタイル統一のため） */
             --text-outline: none;
         }
         
@@ -19,13 +18,14 @@
             --bg: #f5f5f5; --panel: #ffffff; --text: #1a1c1e; --grid: #d0d0d0; 
             --btn-idle: rgba(0, 0, 0, 0.03);
             --btn-border: rgba(0, 0, 0, 0.1);
-            /* ホワイトテーマ用：黄色い文字を見えやすくするための縁取り */
+            /* --- 調整：ホワイトテーマ用テキスト縁取りを強化 --- */
+            /* コントラストを高めるため、影の色を rgba(0,0,0,0.1) から rgba(0,0,0,0.4) へ濃くしました */
             --text-outline: 
-                -1px -1px 0 rgba(0,0,0,0.1),  
-                 1px -1px 0 rgba(0,0,0,0.1),
-                -1px  1px 0 rgba(0,0,0,0.1),
-                 1px  1px 0 rgba(0,0,0,0.1),
-                 0px  0px 2px rgba(0,0,0,0.2);
+                -1px -1px 0 rgba(0,0,0,0.4),  
+                 1px -1px 0 rgba(0,0,0,0.4),
+                -1px  1px 0 rgba(0,0,0,0.4),
+                 1px  1px 0 rgba(0,0,0,0.4),
+                 0px  0px 2px rgba(0,0,0,0.5); /* 全体の輪郭も強化 */
         }
 
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
@@ -45,14 +45,13 @@
             background: var(--panel); border: 1px solid rgba(128,128,128,0.3); color: var(--accent);
             padding: 8px 12px; cursor: pointer; border-radius: 0 4px 4px 0;
             transition: left 0.3s ease; font-weight: bold;
-            text-shadow: var(--text-outline); /* 開閉ボタンに適用 */
+            text-shadow: var(--text-outline);
         }
         body.sidebar-closed #toggle-sidebar { left: 0; }
 
         .tool-group { border: 1px solid var(--btn-border); padding: 10px; border-radius: 4px; margin-bottom: 5px; text-align: left; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0; }
 
-        /* 黄色いラベル・見出しに縁取りを適用 */
         label { 
             font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; 
             margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em;
@@ -98,12 +97,20 @@
             border: 1px solid var(--accent); color: var(--accent);
             box-shadow: 0 2px 10px rgba(0,0,0,0.5);
             white-space: nowrap;
-            text-shadow: var(--text-outline); /* ステータスバー文字に適用 */
+            text-shadow: var(--text-outline);
         }
         body.sidebar-closed .status-bar { left: 20px; }
 
         .controls-hint { font-size: 0.7em; color: #888; line-height: 1.6; background: rgba(128,128,128,0.1); padding: 10px; border-radius: 4px; border-left: 3px solid var(--accent); }
-        textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; text-shadow: var(--text-outline); }
+        
+        /* テキストエリアの文字（黄色）も見やすく修正 */
+        textarea { 
+            width: 100%; height: 60px; background: rgba(0,0,0,0.2); 
+            color: var(--accent); border: 1px solid rgba(128,128,128,0.3); 
+            font-family: monospace; font-size: 10px; resize: none; 
+            margin-top: 5px; padding: 5px; box-sizing: border-box; 
+            text-shadow: var(--text-outline); 
+        }
         .warning-text { font-size: 0.65em; color: var(--warning); margin-top: 8px; line-height: 1.4; border-top: 1px dashed rgba(128,128,128,0.3); padding-top: 8px; }
     </style>
 </head>
@@ -112,7 +119,7 @@
 <button id="toggle-sidebar" onclick="toggleSidebar()">◀</button>
 
 <div id="sidebar">
-    <h2>工業設計端末</h2>
+    <h2>工業図面作成</h2>
     
     <div class="tool-group" id="dynamic-tools">
         <label>設備一覧</label>
