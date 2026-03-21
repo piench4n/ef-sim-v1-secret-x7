@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="robots" content="noindex,nofollow">
-    <title>Endfield Industrial Planner</title>
+    <title>Endfield Industrial Planner - Moveable Edition</title>
     <style>
         :root { --bg: #1a1c1e; --panel: #2d2f31; --accent: #ffcf00; --text: #e0e0e0; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
@@ -13,7 +13,8 @@
         .tool-btn:hover { background: #4d4f51; }
         .tool-btn.active { background: var(--accent); color: black; font-weight: bold; }
         #main { flex: 1; position: relative; overflow: hidden; background: #111; cursor: crosshair; }
-        #main.dragging { cursor: grabbing; }
+        #main.dragging-map { cursor: grabbing; }
+        #main.dragging-item { cursor: move; }
         canvas { display: block; }
         .status-bar { position: fixed; bottom: 10px; left: 290px; background: rgba(0,0,0,0.7); padding: 5px 10px; font-size: 12px; border-radius: 4px; z-index: 100; pointer-events: none; }
         .controls-hint { font-size: 0.75em; color: #888; line-height: 1.6; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; }
@@ -30,8 +31,9 @@
         <button class="tool-btn" onclick="clearCanvas()" style="color:#ff6b6b">🗑 全消去</button>
     </div>
     <div class="controls-hint">
-        <strong>【移動】</strong> 左ドラッグ / 中ボタン<br>
-        <strong>【設置/削除】</strong> 右クリック<br>
+        <strong>【画面移動】</strong> 中ボタン(押し込み)<br>
+        <strong>【設置 / 移動】</strong> 左ドラッグ<br>
+        <strong>【削除】</strong> 右クリック<br>
         <strong>【ズーム】</strong> ホイール (30%-150%)
     </div>
 </div>
@@ -51,8 +53,11 @@
     let scale = 1.0;
     let offsetX = 0;
     let offsetY = 0;
-    let isDragging = false;
+    let isDraggingMap = false;
+    let draggingItem = null;
+    let dragStartPos = { x: 0, y: 0 };
     let lastMousePos = { x: 0, y: 0 };
+    
     let placedItems = [];
     let currentTool = null;
     let mouseGrid = { x: 0, y: 0 };
@@ -106,22 +111,14 @@
         ctx.strokeStyle = '#222';
         ctx.lineWidth = 1 / scale;
 
-        // グリッド描画（修正済み）
         for(let i=0; i<=mapSize; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i * baseGridSize, 0);
-            ctx.lineTo(i * baseGridSize, fullSize);
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(0, i * baseGridSize);
-            ctx.lineTo(fullSize, i * baseGridSize);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(i * baseGridSize, 0); ctx.lineTo(i * baseGridSize, fullSize); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i * baseGridSize); ctx.lineTo(fullSize, i * baseGridSize); ctx.stroke();
         }
 
         placedItems.forEach(item => {
             ctx.fillStyle = item.color;
-            ctx.globalAlpha = 0.8;
+            ctx.globalAlpha = item === draggingItem ? 0.3 : 0.8;
             ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
             if(item.range > 0) {
                 ctx.strokeStyle = '#ffcf00';
@@ -131,22 +128,59 @@
             }
         });
 
-        if(currentTool && currentTool.id !== 'eraser') {
+        if(currentTool && currentTool.id !== 'eraser' && !draggingItem) {
             ctx.globalAlpha = 0.4;
-            const occupied = placedItems.some(i => mouseGrid.x < i.x + i.w && mouseGrid.x + currentTool.w > i.x && mouseGrid.y < i.y + i.h && mouseGrid.y + currentTool.h > i.y);
+            const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, currentTool.w, currentTool.h);
             ctx.fillStyle = occupied ? 'red' : currentTool.color;
             ctx.fillRect(mouseGrid.x*baseGridSize, mouseGrid.y*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
         }
         
+        // 移動中のプレビュー表示
+        if(draggingItem) {
+            ctx.globalAlpha = 0.6;
+            const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, draggingItem.w, draggingItem.h, draggingItem);
+            ctx.fillStyle = occupied ? 'red' : draggingItem.color;
+            ctx.fillRect(mouseGrid.x*baseGridSize, mouseGrid.y*baseGridSize, draggingItem.w*baseGridSize, draggingItem.h*baseGridSize);
+        }
+
         ctx.globalAlpha = 1.0;
         requestAnimationFrame(draw);
     }
 
+    function isAreaOccupied(x, y, w, h, ignoreItem = null) {
+        return placedItems.some(item => {
+            if (item === ignoreItem) return false;
+            return x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y;
+        });
+    }
+
     mainArea.addEventListener('mousedown', (e) => {
-        if (e.button === 0 || e.button === 1) {
-            isDragging = true;
+        if (e.button === 1) { // 中ボタン：マップ移動
+            isDraggingMap = true;
             lastMousePos = { x: e.clientX, y: e.clientY };
-            mainArea.classList.add('dragging');
+            mainArea.classList.add('dragging-map');
+            return;
+        }
+
+        if (e.button === 0) { // 左ボタン
+            const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
+            
+            if (currentTool && currentTool.id === 'eraser') {
+                if (target) placedItems = placedItems.filter(i => i !== target);
+            } else if (target) {
+                // 既存の施設を掴む
+                draggingItem = target;
+                dragStartPos = { x: target.x, y: target.y };
+                mainArea.classList.add('dragging-item');
+            } else if (currentTool) {
+                // 新規設置
+                const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, currentTool.w, currentTool.h);
+                if (!occupied) placedItems.push({ ...currentTool, x: mouseGrid.x, y: mouseGrid.y });
+            }
+        }
+
+        if (e.button === 2) { // 右ボタン：即削除
+            placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h));
         }
     });
 
@@ -154,11 +188,13 @@
         const rect = mainArea.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
-        if (isDragging) {
+
+        if (isDraggingMap) {
             offsetX += e.clientX - lastMousePos.x;
             offsetY += e.clientY - lastMousePos.y;
             lastMousePos = { x: e.clientX, y: e.clientY };
         }
+
         const worldX = (mx - offsetX) / scale;
         const worldY = (my - offsetY) / scale;
         mouseGrid.x = Math.floor(worldX / baseGridSize);
@@ -166,17 +202,25 @@
         updateStatus();
     });
 
-    window.addEventListener('mouseup', () => { isDragging = false; mainArea.classList.remove('dragging'); });
-
-    mainArea.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        if (currentTool && currentTool.id !== 'eraser') {
-            const occupied = placedItems.some(i => mouseGrid.x < i.x + i.w && mouseGrid.x + currentTool.w > i.x && mouseGrid.y < i.y + i.h && mouseGrid.y + currentTool.h > i.y);
-            if (!occupied) placedItems.push({ ...currentTool, x: mouseGrid.x, y: mouseGrid.y });
-        } else {
-            placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h));
+    window.addEventListener('mouseup', () => {
+        if (draggingItem) {
+            // 移動確定
+            const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, draggingItem.w, draggingItem.h, draggingItem);
+            if (!occupied) {
+                draggingItem.x = mouseGrid.x;
+                draggingItem.y = mouseGrid.y;
+            } else {
+                // 重なっていたら元の場所に戻す
+                draggingItem.x = dragStartPos.x;
+                draggingItem.y = dragStartPos.y;
+            }
+            draggingItem = null;
         }
+        isDraggingMap = false;
+        mainArea.classList.remove('dragging-map', 'dragging-item');
     });
+
+    mainArea.addEventListener('contextmenu', e => e.preventDefault());
 
     mainArea.addEventListener('wheel', (e) => {
         e.preventDefault();
