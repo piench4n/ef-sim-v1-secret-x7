@@ -205,7 +205,6 @@
     let allBuildings = [];
     let currentCategory = 'all';
 
-    // --- モーダル管理 ---
     function showModal(text, isConfirm, onOk) {
         const overlay = document.getElementById('modal-overlay');
         const textEl = document.getElementById('modal-text');
@@ -235,7 +234,6 @@
         });
     }
 
-    // --- マップ・UI操作 ---
     function changeMapRatio(val) {
         const [w, h] = val.split(':').map(Number);
         mapW = w; mapH = h;
@@ -339,7 +337,6 @@
         document.getElementById('btn-move').classList.add('active');
     }
 
-    // --- 回転・ショートカット ---
     function rotateItem(item) {
         if (!item) return;
         const temp = item.w; item.w = item.h; item.h = temp;
@@ -376,23 +373,44 @@
         }
     });
 
-    // --- 描画ロジック ---
+    // --- 修正：ラベルのリサイズ機能と強調版方位▲の描画 ---
     function drawLabel(context, text, x, y, itemW, itemH, angle = 0) {
-        const pxW = itemW * baseGridSize; const pxH = itemH * baseGridSize;
+        const pxW = itemW * baseGridSize;
+        const pxH = itemH * baseGridSize;
+        const padding = 2;
         
+        // 1. 方位マーカー（▲）の描画 - 強調版
         context.save();
         context.translate(x, y);
         context.rotate(angle * Math.PI / 2);
-        context.fillStyle = "rgba(255, 207, 0, 0.9)";
-        context.beginPath();
-        const triSize = Math.min(5, pxW/4);
-        context.moveTo(0, -pxH/2 + 1); context.lineTo(-triSize, -pxH/2 + triSize + 1); context.lineTo(triSize, -pxH/2 + triSize + 1);
-        context.fill();
+        
+        // アウトライン（黒縁）
+        context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+        context.lineWidth = 2;
+        context.lineJoin = "round";
+        const triSize = Math.min(7, pxW/3.5);
+        const topY = -pxH/2 + 2;
+        
+        const drawTri = () => {
+            context.beginPath();
+            context.moveTo(0, topY);
+            context.lineTo(-triSize, topY + triSize * 1.2);
+            context.lineTo(triSize, topY + triSize * 1.2);
+            context.closePath();
+        };
+
+        drawTri();
+        context.stroke(); // 縁取り
+        context.fillStyle = "#ffcf00"; // 鮮やかな黄色
+        context.fill(); // 中身
         context.restore();
 
+        // 2. テキスト処理
         let fontSize = (itemW === 1 || itemH === 1) ? 11 : 13;
         context.font = `bold ${fontSize}px sans-serif`;
-        context.textAlign = "center"; context.textBaseline = "middle";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        
         const maxAvailableW = pxW - 4;
         let displayName = text;
 
@@ -407,6 +425,7 @@
                 }
             } else displayName = text[0];
         }
+        
         context.fillStyle = "rgba(0, 0, 0, 0.85)";
         context.fillText(displayName, x + 0.5, y + 0.5);
         context.fillStyle = "#fff";
