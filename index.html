@@ -11,7 +11,6 @@
             --btn-idle: rgba(255, 255, 255, 0.05);
             --btn-border: rgba(128, 128, 128, 0.3);
             --sidebar-w: 280px;
-            --text-outline: none;
             --tooltip-bg: rgba(0, 0, 0, 0.9);
         }
 
@@ -62,13 +61,14 @@
         .count-badge { font-size: 0.9em; opacity: 0.6; margin-left: auto; padding-right: 4px; }
         .tool-btn.active .count-badge { color: #000; opacity: 1; }
 
-        .tool-btn::after {
+        /* --- 修正：data-size属性を持っている要素のみにツールチップを適用 --- */
+        .tool-btn[data-size]::after {
             content: attr(data-size); font-size: 9px; background: var(--tooltip-bg); color: #fff; padding: 2px 5px;
             border-radius: 3px; border: 1px solid var(--accent); opacity: 0; transition: 0.2s;
             pointer-events: none; position: absolute; right: 5px; font-weight: normal;
         }
-        .tool-btn:hover::after { opacity: 1; }
-        .tool-btn:hover .count-badge { visibility: hidden; }
+        .tool-btn[data-size]:hover::after { opacity: 1; }
+        .tool-btn[data-size]:hover .count-badge { visibility: hidden; }
 
         .action-btn { font-weight: bold; justify-content: center; text-align: center; }
         .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
@@ -101,9 +101,9 @@
     <h2>工業図面作成</h2>
 
     <div class="tool-group" id="dynamic-tools">
-        <label>設備状況</label>
+        <label>設備一覧</label>
         <div id="summary-panel">
-            <div class="summary-item"><span>総消費電力:</span> <span id="sum-power" class="val-stat">0</span></div>
+            <div class="summary-item"><span>消費電力:</span> <span id="sum-power" class="val-stat">0</span></div>
         </div>
         
         <div class="cat-container" id="category-filters">
@@ -147,6 +147,7 @@
 <canvas id="exportCanvas" style="display:none;"></canvas>
 
 <script>
+    // JS部分は前回の安定版を継承
     const canvas = document.getElementById('gridCanvas');
     const ctx = canvas.getContext('2d');
     const mainArea = document.getElementById('main');
@@ -269,14 +270,13 @@
     }
 
     function draw() {
-        const styles = getComputedStyle(document.body);
-        const gridColor = styles.getPropertyValue('--grid').trim();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.translate(offsetX, offsetY);
         ctx.scale(scale, scale);
         
-        ctx.strokeStyle = gridColor; ctx.lineWidth = 1/scale;
+        ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
+        ctx.lineWidth = 1/scale;
         for(let i=0; i<=mapSize; i++) {
             ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapSize*baseGridSize); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, i*baseGridSize); ctx.lineTo(mapSize*baseGridSize, i*baseGridSize); ctx.stroke();
@@ -370,10 +370,9 @@
         const expCtx = expCanvas.getContext('2d');
         const res = mapSize * baseGridSize;
         expCanvas.width = res; expCanvas.height = res;
-        const styles = getComputedStyle(document.body);
-        expCtx.fillStyle = styles.getPropertyValue('--bg').trim();
+        expCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg').trim();
         expCtx.fillRect(0, 0, res, res);
-        expCtx.strokeStyle = styles.getPropertyValue('--grid').trim();
+        expCtx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
         expCtx.lineWidth = 1;
         for(let i=0; i<=mapSize; i++) {
             expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, res); expCtx.stroke();
@@ -384,9 +383,7 @@
             expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
         });
         const link = document.createElement('a');
-        link.download = `endfield_plan.png`;
-        link.href = expCanvas.toDataURL('image/png');
-        link.click();
+        link.download = `endfield_plan.png`; link.href = expCanvas.toDataURL('image/png'); link.click();
     }
 
     function exportData() {
