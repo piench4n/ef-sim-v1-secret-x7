@@ -11,6 +11,7 @@
             --btn-idle: rgba(255, 255, 255, 0.05);
             --btn-border: rgba(128, 128, 128, 0.3);
             --sidebar-w: 280px;
+            --tooltip-bg: rgba(0, 0, 0, 0.9);
         }
 
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
@@ -18,9 +19,11 @@
         #sidebar { 
             width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--panel); border-right: 2px solid rgba(128,128,128,0.2); padding: 20px; 
             display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 100;
-            box-sizing: border-box;
+            transition: margin-left 0.3s ease, opacity 0.3s ease;
+            -ms-overflow-style: none; scrollbar-width: none; box-sizing: border-box;
         }
         #sidebar::-webkit-scrollbar { display: none; }
+        body.sidebar-closed #sidebar { margin-left: calc(var(--sidebar-w) * -1); opacity: 0; pointer-events: none; }
 
         #toggle-sidebar {
             position: fixed; left: var(--sidebar-w); top: 10px; z-index: 110;
@@ -28,48 +31,67 @@
             padding: 8px 12px; cursor: pointer; border-radius: 0 4px 4px 0;
             transition: left 0.3s ease; font-weight: bold;
         }
-        body.sidebar-closed #sidebar { margin-left: calc(var(--sidebar-w) * -1); }
         body.sidebar-closed #toggle-sidebar { left: 0; }
 
-        .tool-group { border: 1px solid var(--btn-border); padding: 10px; border-radius: 4px; margin-bottom: 5px; }
+        .tool-group { border: 1px solid var(--btn-border); padding: 10px; border-radius: 4px; margin-bottom: 5px; text-align: left; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0; }
 
-        label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; }
-        h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; color: var(--accent); }
+        label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+        h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); }
         
+        #summary-panel { font-size: 0.85em; line-height: 1.6; border-bottom: 1px solid var(--btn-border); padding-bottom: 8px; margin-bottom: 12px; }
+        .summary-item { display: flex; justify-content: space-between; }
+        .val-stat { color: var(--accent); font-weight: bold; }
+
         .cat-container { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
-        .cat-btn { font-size: 0.7em; padding: 4px 8px; background: var(--btn-idle); border: 1px solid var(--btn-border); color: var(--text); cursor: pointer; border-radius: 3px; }
+        .cat-btn { font-size: 0.7em; padding: 4px 8px; background: var(--btn-idle); border: 1px solid var(--btn-border); color: var(--text); border-radius: 3px; cursor: pointer; }
         .cat-btn.active { background: var(--accent); color: #000; font-weight: bold; }
 
         .tool-btn { 
-            width: 100%; padding: 8px 10px; margin: 2px 0; background: var(--btn-idle); border: 1px solid var(--btn-border); 
-            color: var(--text); cursor: pointer; text-align: left; border-radius: 4px; font-size: 0.8em;
-            display: flex; align-items: center; justify-content: space-between;
+            width: 100%; padding: 8px 10px; margin: 2px 0; 
+            background: var(--btn-idle); border: 1px solid var(--btn-border); 
+            color: var(--text); cursor: pointer; text-align: left;
+            transition: 0.2s; border-radius: 4px; 
+            font-size: 0.8em; display: flex; align-items: center; justify-content: space-between;
+            opacity: 0.8; box-sizing: border-box; white-space: nowrap; position: relative;
         }
-        .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); }
+        .tool-btn:hover { background: rgba(255, 207, 0, 0.15); border-color: var(--accent); opacity: 1; }
+        .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); opacity: 1; box-shadow: 0 0 10px rgba(255, 207, 0, 0.3); }
         
+        .count-badge { font-size: 0.9em; opacity: 0.6; margin-left: auto; padding-right: 4px; }
+        .tool-btn.active .count-badge { color: #000; opacity: 1; }
+
         .action-btn { font-weight: bold; justify-content: center; text-align: center; }
         .full-width { grid-column: span 2; } 
 
-        select { width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; }
+        select { width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; outline: none; cursor: pointer; font-size: 0.9em; }
 
         #main { flex: 1; position: relative; overflow: hidden; background: var(--bg); cursor: crosshair; }
         #main.dragging-map { cursor: grabbing; }
+        #main.dragging-item { cursor: move; }
         canvas { display: block; }
         
         .status-bar { 
             position: fixed; bottom: 15px; left: calc(var(--sidebar-w) + 20px);
             background: rgba(0,0,0,0.8); padding: 6px 14px; font-size: 12px; border-radius: 4px; 
-            border: 1px solid var(--accent); color: var(--accent); pointer-events: none;
+            z-index: 90; pointer-events: none; transition: left 0.3s ease; 
+            border: 1px solid var(--accent); color: var(--accent);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5); white-space: nowrap;
         }
         body.sidebar-closed .status-bar { left: 20px; }
 
         .controls-hint { font-size: 0.7em; color: #888; line-height: 1.6; background: rgba(128,128,128,0.1); padding: 10px; border-radius: 4px; border-left: 3px solid var(--accent); }
-        textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid var(--btn-border); font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
+        textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
 
-        #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        #modal-box { background: var(--panel); border: 2px solid var(--accent); padding: 25px; border-radius: 8px; text-align: center; }
-        .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        #modal-box {
+            background: var(--panel); border: 2px solid var(--accent); padding: 25px; border-radius: 8px;
+            max-width: 400px; width: 90%; text-align: center;
+        }
+        .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px;}
         .modal-btn { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; }
         .modal-confirm { background: var(--accent); color: #000; }
         .modal-cancel { background: var(--btn-idle); color: var(--text); border: 1px solid var(--btn-border); }
@@ -84,11 +106,13 @@
 
     <div class="tool-group" id="dynamic-tools">
         <label>設備一覧</label>
-        <div id="summary-panel" style="font-size:0.85em; margin-bottom:10px;">消費電力: <span id="sum-power" style="color:var(--accent); font-weight:bold;">0</span></div>
+        <div id="summary-panel">
+            <div class="summary-item"><span>消費電力:</span> <span id="sum-power" class="val-stat">0</span></div>
+        </div>
         <div class="cat-container" id="category-filters">
             <button id="cat-all" class="cat-btn active" onclick="filterCategory('all')">すべて</button>
         </div>
-        <div id="buildings-container"></div>
+        <div id="buildings-container">読み込み中...</div>
     </div>
 
     <div class="tool-group">
@@ -101,7 +125,7 @@
     </div>
 
     <div class="tool-group">
-        <label>設計図 / マップ</label>
+        <label>マップ / 設計図コード</label>
         <select id="map-ratio" onchange="changeMapRatio(this.value)" style="margin-bottom:8px;">
             <option value="40:40">40 × 40</option>
             <option value="50:50">50 × 50</option>
@@ -110,19 +134,19 @@
         <div class="grid-2">
             <button class="tool-btn action-btn" onclick="exportData()">書き出し</button>
             <button class="tool-btn action-btn" onclick="confirmImport()">読み込み</button>
-            <textarea id="data-text" placeholder="ここにコードを入力/出力"></textarea>
-            <button class="tool-btn action-btn full-width" onclick="downloadImage()">画像を保存 (PNG)</button>
+            <textarea id="data-text" placeholder="ここにコードを入力/出力" style="grid-column: span 2;"></textarea>
+            <button class="tool-btn action-btn full-width" onclick="downloadImage()" style="margin-top:5px">画像を保存 (PNG)</button>
         </div>
     </div>
     
     <div class="controls-hint">
         <strong>【選択・移動】</strong><br>
-        ・クリック：施設の選択/解除（保持）<br>
-        ・ドラッグ：選択中グループの一括移動<br>
-        ・背景ドラッグ：範囲選択<br>
+        ・クリック：施設を選択状態にする（保持）<br>
+        ・ドラッグ：選択中の施設をまとめて移動<br>
+        ・背景ドラッグ：範囲内の施設を一括選択<br>
         <strong>【コピー＆ペースト】</strong><br>
-        ・<strong>Ctrl+C</strong>：選択中をコピー<br>
-        ・<strong>Ctrl+V</strong>：マウス位置に貼付<br>
+        ・<strong>Ctrl + C</strong>：選択中のグループをコピー<br>
+        ・<strong>Ctrl + V</strong>：マウス位置に貼り付け<br>
         <strong>【共通】</strong><br>
         ・<strong>R</strong>：回転 / <strong>中クリック</strong>：画面移動
     </div>
@@ -134,10 +158,13 @@
 </div>
 
 <div id="modal-overlay">
-    <div id="modal-box"><div id="modal-text"></div><div class="modal-btns">
-        <button id="modal-cancel-btn" class="modal-btn modal-cancel">キャンセル</button>
-        <button id="modal-ok-btn" class="modal-btn modal-confirm">OK</button>
-    </div></div>
+    <div id="modal-box">
+        <div id="modal-text"></div>
+        <div class="modal-btns">
+            <button id="modal-cancel-btn" class="modal-btn modal-cancel">キャンセル</button>
+            <button id="modal-ok-btn" class="modal-btn modal-confirm">OK</button>
+        </div>
+    </div>
 </div>
 
 <canvas id="exportCanvas" style="display:none;"></canvas>
@@ -167,7 +194,8 @@
 
     function showModal(text, isConfirm, onOk) {
         const overlay = document.getElementById('modal-overlay');
-        document.getElementById('modal-text').innerText = text; overlay.style.display = 'flex';
+        const textEl = document.getElementById('modal-text');
+        textEl.innerText = text; overlay.style.display = 'flex';
         document.getElementById('modal-cancel-btn').style.display = isConfirm ? 'inline-block' : 'none';
         document.getElementById('modal-ok-btn').onclick = () => { overlay.style.display = 'none'; if(onOk) onOk(); };
         document.getElementById('modal-cancel-btn').onclick = () => { overlay.style.display = 'none'; };
@@ -193,44 +221,58 @@
 
         const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
 
+        // 削除モード
         if (currentTool && currentTool.id === 'eraser') {
             if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
             return;
         }
+
+        // ペーストモード
         if (currentTool && currentTool.id === 'paste') {
-            clipboard.forEach(cb => { const newItem = JSON.parse(JSON.stringify(cb)); newItem.x = mouseGrid.x + cb.offsetX; newItem.y = mouseGrid.y + cb.offsetY; placedItems.push(newItem); });
+            clipboard.forEach(cb => {
+                const newItem = JSON.parse(JSON.stringify(cb));
+                newItem.x = mouseGrid.x + cb.offsetX; newItem.y = mouseGrid.y + cb.offsetY;
+                placedItems.push(newItem);
+            });
             updateStats(); autoSave(); return;
         }
-        if (currentTool) {
+
+        // 設置ツール選択中
+        if (currentTool && !['eraser','paste'].includes(currentTool.id)) {
             const px = Math.min(mapW - currentTool.w, mouseGrid.x); const py = Math.min(mapH - currentTool.h, mouseGrid.y);
             if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) {
-                const newItem = JSON.parse(JSON.stringify(currentTool)); newItem.x = px; newItem.y = py; placedItems.push(newItem); updateStats(); autoSave();
+                const newItem = JSON.parse(JSON.stringify(currentTool));
+                newItem.x = px; newItem.y = py; placedItems.push(newItem); updateStats(); autoSave();
             }
             return;
         }
 
-        // 選択・移動モード統合ロジック
+        // 選択・移動モード (統合)
         if (target) {
             if (selectedItems.includes(target)) {
+                // 選択済みをクリックした場合、ドラッグ準備 or 単体クリックなら後で解除
                 isDraggingSelection = true;
                 dragOffset = { x: mouseGrid.x, y: mouseGrid.y };
                 initialDragPositions = selectedItems.map(i => ({ x: i.x, y: i.y }));
-                target._clicking = true; 
+                target._clicking = true; // クリックのみかドラッグかの判定用
             } else {
+                // 未選択をクリック：追加選択
                 selectedItems.push(target);
                 isDraggingSelection = true;
                 dragOffset = { x: mouseGrid.x, y: mouseGrid.y };
                 initialDragPositions = selectedItems.map(i => ({ x: i.x, y: i.y }));
             }
         } else {
+            // 背景クリック：範囲選択開始
             selectionBox = { x1: mouseGrid.x, y1: mouseGrid.y, x2: mouseGrid.x, y2: mouseGrid.y };
-            selectedItems = []; 
+            if (!e.shiftKey) selectedItems = []; // Shiftなしなら一旦クリア（ここはお好みで）
         }
     });
 
     window.addEventListener('mousemove', (e) => {
         const rect = mainArea.getBoundingClientRect();
         if (isDraggingMap) { offsetX += e.clientX - lastMousePos.x; offsetY += e.clientY - lastMousePos.y; lastMousePos = { x: e.clientX, y: e.clientY }; }
+        
         const worldX = (e.clientX - rect.left - offsetX) / scale;
         const worldY = (e.clientY - rect.top - offsetY) / scale;
         const newX = Math.max(0, Math.min(mapW, Math.floor(worldX / baseGridSize)));
@@ -247,20 +289,23 @@
         mouseGrid.x = newX; mouseGrid.y = newY; updateStatus();
     });
 
-    window.addEventListener('mouseup', () => {
+    window.addEventListener('mouseup', (e) => {
         if (selectionBox) {
             const xMin = Math.min(selectionBox.x1, selectionBox.x2); const xMax = Math.max(selectionBox.x1, selectionBox.x2);
             const yMin = Math.min(selectionBox.y1, selectionBox.y2); const yMax = Math.max(selectionBox.y1, selectionBox.y2);
-            placedItems.filter(i => i.x <= xMax && i.x + i.w - 1 >= xMin && i.y <= yMax && i.y + i.h - 1 >= yMin).forEach(i => { if(!selectedItems.includes(i)) selectedItems.push(i); });
+            const boxed = placedItems.filter(item => item.x <= xMax && item.x + item.w - 1 >= xMin && item.y <= yMax && item.y + item.h - 1 >= yMin);
+            boxed.forEach(i => { if(!selectedItems.includes(i)) selectedItems.push(i); });
             selectionBox = null;
         }
         if (isDraggingSelection) {
+            // ドラッグせずにクリックしただけなら、選択を解除（トグル）
             selectedItems.forEach((item, idx) => {
                 if (item._clicking) {
                     const target = placedItems.find(it => mouseGrid.x >= it.x && mouseGrid.x < it.x + it.w && mouseGrid.y >= it.y && mouseGrid.y < it.y + it.h);
                     if (target === item) selectedItems = selectedItems.filter(s => s !== item);
                     delete item._clicking;
                 }
+                // 衝突判定
                 if (isAreaOccupied(item.x, item.y, item.w, item.h, selectedItems)) {
                     selectedItems.forEach((it, i) => { it.x = initialDragPositions[i].x; it.y = initialDragPositions[i].y; });
                 }
@@ -270,6 +315,7 @@
         updateStats(); autoSave();
     });
 
+    // キー操作系
     window.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
         if (e.ctrlKey && key === 'c') { 
@@ -281,18 +327,25 @@
         }
         if (e.ctrlKey && key === 'v') { if (clipboard) { currentTool = { id: 'paste' }; selectedItems = []; updateActionBtns('btn-none'); } return; }
         if (key === 'r') {
-            if (selectedItems.length > 0) { selectedItems.forEach(i => { const t = i.w; i.w = i.h; i.h = t; i.angle = ((i.angle||0)+1)%4; }); }
-            else if (currentTool) { const t = currentTool.w; currentTool.w = currentTool.h; currentTool.h = t; currentTool.angle = ((currentTool.angle||0)+1)%4; }
+            if (selectedItems.length > 0) { selectedItems.forEach(rotateItem); }
+            else if (currentTool && !['eraser','paste'].includes(currentTool.id)) rotateItem(currentTool);
         }
         if (key === 'escape') setSelectMode();
-        if (key === 'delete' || key === 'backspace') { placedItems = placedItems.filter(i => !selectedItems.includes(i)); selectedItems = []; updateStats(); autoSave(); }
+        if (key === 'delete' || key === 'backspace') { if(selectedItems.length > 0) { placedItems = placedItems.filter(i => !selectedItems.includes(i)); selectedItems = []; updateStats(); autoSave(); } }
     });
 
+    function rotateItem(item) { const temp = item.w; item.w = item.h; item.h = temp; item.angle = ((item.angle || 0) + 1) % 4; }
+
+    // 以下、描画・ユーティリティロジック (変更なし)
     function drawLabel(context, text, x, y, itemW, itemH, angle = 0) {
         context.save(); context.translate(x, y); context.rotate(angle * Math.PI / 2);
+        context.strokeStyle = "rgba(0, 0, 0, 0.8)"; context.lineWidth = 2;
+        const triSize = Math.min(7, (itemW * baseGridSize)/3.5);
+        context.beginPath(); context.moveTo(0, -(itemH*baseGridSize)/2 + 2); context.lineTo(-triSize, -(itemH*baseGridSize)/2 + triSize * 1.2); context.lineTo(triSize, -(itemH*baseGridSize)/2 + triSize * 1.2); context.closePath();
+        context.stroke(); context.fillStyle = "#ffcf00"; context.fill(); context.restore();
         context.font = `bold ${(itemW===1||itemH===1)?11:13}px sans-serif`; context.textAlign = "center"; context.textBaseline = "middle";
-        context.fillStyle = "rgba(0,0,0,0.8)"; context.fillText(text.substring(0,4), 0.5, 0.5);
-        context.fillStyle = "#fff"; context.fillText(text.substring(0,4), 0, 0); context.restore();
+        context.fillStyle = "rgba(0, 0, 0, 0.8)"; context.fillText(text.substring(0,4), x+0.5, y+0.5);
+        context.fillStyle = "#fff"; context.fillText(text.substring(0,4), x, y);
     }
 
     function draw() {
@@ -313,9 +366,14 @@
             ctx.strokeStyle = "#ffcf00"; ctx.lineWidth = 1/scale; ctx.strokeRect(selectionBox.x1*baseGridSize, selectionBox.y1*baseGridSize, (selectionBox.x2-selectionBox.x1)*baseGridSize, (selectionBox.y2-selectionBox.y1)*baseGridSize);
             ctx.fillStyle = "rgba(255, 207, 0, 0.1)"; ctx.fillRect(selectionBox.x1*baseGridSize, selectionBox.y1*baseGridSize, (selectionBox.x2-selectionBox.x1)*baseGridSize, (selectionBox.y2-selectionBox.y1)*baseGridSize);
         }
+        
         if (currentTool && currentTool.id === 'paste' && clipboard) {
-            ctx.globalAlpha = 0.5; clipboard.forEach(cb => { const curX = mouseGrid.x + cb.offsetX; const curY = mouseGrid.y + cb.offsetY; ctx.fillStyle = isAreaOccupied(curX, curY, cb.w, cb.h) ? "red" : cb.color; ctx.fillRect(curX*baseGridSize, curY*baseGridSize, cb.w*baseGridSize, cb.h*baseGridSize); });
-        } else if (currentTool && currentTool.id !== 'eraser') {
+            ctx.globalAlpha = 0.5; clipboard.forEach(cb => {
+                const curX = mouseGrid.x + cb.offsetX; const curY = mouseGrid.y + cb.offsetY;
+                ctx.fillStyle = isAreaOccupied(curX, curY, cb.w, cb.h) ? "red" : cb.color;
+                ctx.fillRect(curX*baseGridSize, curY*baseGridSize, cb.w*baseGridSize, cb.h*baseGridSize);
+            });
+        } else if (currentTool && !['eraser'].includes(currentTool.id)) {
             const px = Math.min(mapW - currentTool.w, mouseGrid.x); const py = Math.min(mapH - currentTool.h, mouseGrid.y);
             ctx.globalAlpha = 0.5; ctx.fillStyle = isAreaOccupied(px, py, currentTool.w, currentTool.h) ? 'red' : currentTool.color;
             ctx.fillRect(px*baseGridSize, py*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
@@ -324,36 +382,43 @@
         requestAnimationFrame(draw);
     }
 
+    // 補助関数群
     function updateStats() {
-        let pwr = 0; placedItems.forEach(i => pwr += (i.power || 0)); document.getElementById('sum-power').innerText = pwr;
-        allBuildings.forEach(b => { const count = placedItems.filter(i => i.id === b.id).length; const el = document.getElementById(`count-${b.id}`); if(el) el.innerText = count; });
+        let pwr = 0; placedItems.forEach(i => pwr += (i.power || 0));
+        document.getElementById('sum-power').innerText = pwr;
+        allBuildings.forEach(b => {
+            const count = placedItems.filter(i => i.id === b.id).length;
+            const el = document.getElementById(`count-${b.id}`); if(el) el.innerText = count;
+        });
     }
     function filterCategory(c) { currentCategory = c; document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('active', b.innerText === c || (c==='all' && b.id==='cat-all'))); renderButtons(); }
     function renderButtons() {
-        const container = document.getElementById('buildings-container'); container.innerHTML = '';
+        const container = document.getElementById('buildings-container'); if(!container) return; container.innerHTML = '';
         allBuildings.filter(b => currentCategory === 'all' || b.category === currentCategory).forEach(b => {
             const btn = document.createElement('button'); btn.className = 'tool-btn' + (currentTool && currentTool.id === b.id ? ' active' : '');
-            btn.innerHTML = `<span>${b.name}</span><span id="count-${b.id}" style="opacity:0.6;">0</span>`; btn.onclick = () => setTool(b); container.appendChild(btn);
+            btn.innerHTML = `<span>${b.name}</span><span class="count-badge" id="count-${b.id}">0</span>`;
+            btn.onclick = () => setTool(b); container.appendChild(btn);
         });
         updateStats();
     }
     function toggleSidebar() { document.body.classList.toggle('sidebar-closed'); document.getElementById('toggle-sidebar').innerText = document.body.classList.contains('sidebar-closed')?'▶':'◀'; setTimeout(centerMap, 310); }
     function changeMapRatio(v) { [mapW, mapH] = v.split(':').map(Number); canvas.width = mapW*baseGridSize; canvas.height = mapH*baseGridSize; centerMap(); }
     function centerMap() { const r = mainArea.getBoundingClientRect(); offsetX = (r.width - mapW*baseGridSize*scale)/2; offsetY = (r.height - mapH*baseGridSize*scale)/2; }
-    function exportData() { document.getElementById('data-text').value = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems)))); showModal('書き出しました', false); }
+    function exportData() { document.getElementById('data-text').value = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems)))); showModal('設計図を書き出しました', false); }
     function confirmClear() { showModal('全て削除しますか？', true, () => { placedItems=[]; selectedItems=[]; updateStats(); autoSave(); }); }
-    function confirmImport() { try { placedItems = JSON.parse(decodeURIComponent(escape(atob(document.getElementById('data-text').value)))); selectedItems=[]; updateStats(); autoSave(); } catch(e){ showModal('コードが不正です', false); } }
+    function confirmImport() { try { placedItems = JSON.parse(decodeURIComponent(escape(atob(document.getElementById('data-text').value)))); selectedItems=[]; updateStats(); autoSave(); } catch(e){ showModal('コードが正しくありません', false); } }
     function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
     function autoLoad() { const s = localStorage.getItem('endfield_save'); if(s) placedItems = JSON.parse(s); }
     function downloadImage() { 
-        const eC = document.getElementById('exportCanvas'); const eCtx = eC.getContext('2d'); eC.width = mapW*baseGridSize; eC.height = mapH*baseGridSize;
+        const eC = document.getElementById('exportCanvas'); const eCtx = eC.getContext('2d');
+        eC.width = mapW*baseGridSize; eC.height = mapH*baseGridSize;
         eCtx.fillStyle = "#121416"; eCtx.fillRect(0,0,eC.width,eC.height);
         placedItems.forEach(i => { eCtx.fillStyle = i.color; eCtx.fillRect(i.x*baseGridSize+1, i.y*baseGridSize+1, i.w*baseGridSize-2, i.h*baseGridSize-2); drawLabel(eCtx, i.name, (i.x+i.w/2)*baseGridSize, (i.y+i.h/2)*baseGridSize, i.w, i.h, i.angle||0); });
         const l = document.createElement('a'); l.download = "plan.png"; l.href = eC.toDataURL(); l.click();
     }
 
     mainArea.addEventListener('wheel', (e) => { 
-        e.preventDefault(); const d = e.deltaY>0?-0.05:0.05; const nS = Math.min(Math.max(0.25, scale+d), 1.5);
+        e.preventDefault(); const d = e.deltaY>0?-0.05:0.05; const nS = Math.min(Math.max(0.1, scale+d), 1.5);
         if(nS !== scale) { const r = mainArea.getBoundingClientRect(); const mx = e.clientX-r.left; const my = e.clientY-r.top;
         offsetX -= (mx-offsetX)*(nS/scale-1); offsetY -= (my-offsetY)*(nS/scale-1); scale=nS; updateStatus(); }
     }, {passive:false});
