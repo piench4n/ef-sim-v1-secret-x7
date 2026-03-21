@@ -61,8 +61,18 @@
         .count-badge { font-size: 0.9em; opacity: 0.6; margin-left: auto; padding-right: 4px; }
         .tool-btn.active .count-badge { color: #000; opacity: 1; }
 
+        .tool-btn[data-size]::after {
+            content: attr(data-size); font-size: 9px; background: var(--tooltip-bg); color: #fff; padding: 2px 5px;
+            border-radius: 3px; border: 1px solid var(--accent); opacity: 0; transition: 0.2s;
+            pointer-events: none; position: absolute; right: 5px; font-weight: normal;
+        }
+        .tool-btn[data-size]:hover::after { opacity: 1; }
+        .tool-btn[data-size]:hover .count-badge { visibility: hidden; }
+
         .action-btn { font-weight: bold; justify-content: center; text-align: center; }
         .full-width { grid-column: span 2; } 
+        .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
+        .save-btn:hover { opacity: 1; }
 
         select { width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; outline: none; cursor: pointer; font-size: 0.9em; }
 
@@ -82,6 +92,7 @@
 
         .controls-hint { font-size: 0.7em; color: #888; line-height: 1.6; background: rgba(128,128,128,0.1); padding: 10px; border-radius: 4px; border-left: 3px solid var(--accent); }
         textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
+        .warning-text { font-size: 0.65em; color: var(--warning); margin-top: 8px; line-height: 1.4; border-top: 1px dashed rgba(128,128,128,0.3); padding-top: 8px; }
 
         #modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -89,10 +100,11 @@
         }
         #modal-box {
             background: var(--panel); border: 2px solid var(--accent); padding: 25px; border-radius: 8px;
-            max-width: 400px; width: 90%; text-align: center;
+            max-width: 400px; width: 90%; text-align: center; box-shadow: 0 0 20px rgba(255, 207, 0, 0.2);
         }
-        .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px;}
-        .modal-btn { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; }
+        #modal-text { margin-bottom: 20px; font-size: 0.95em; line-height: 1.5; }
+        .modal-btns { display: flex; gap: 10px; justify-content: center; }
+        .modal-btn { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; min-width: 80px; }
         .modal-confirm { background: var(--accent); color: #000; }
         .modal-cancel { background: var(--btn-idle); color: var(--text); border: 1px solid var(--btn-border); }
     </style>
@@ -116,39 +128,43 @@
     </div>
 
     <div class="tool-group">
+        <label>マップ設定</label>
+        <select id="map-ratio" onchange="changeMapRatio(this.value)">
+            <option value="40:40">40 × 40</option>
+            <option value="50:50">50 × 50</option>
+            <option value="70:70">70 × 70</option>
+            <option value="80:80">80 × 80</option>
+        </select>
+    </div>
+
+    <div class="tool-group">
         <label>基本操作</label>
         <div class="grid-2">
-            <button class="tool-btn action-btn active full-width" onclick="setSelectMode()" id="btn-select">選択・移動モード</button>
+            <button class="tool-btn action-btn active" onclick="setMoveMode()" id="btn-move">移動モード</button>
+            <button class="tool-btn action-btn" onclick="setMultiMode()" id="btn-multi">一括操作</button>
             <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser">削除モード</button>
             <button class="tool-btn action-btn" onclick="confirmClear()" style="color:var(--danger)">すべて削除</button>
         </div>
     </div>
 
-    <div class="tool-group">
-        <label>マップ / 設計図コード</label>
-        <select id="map-ratio" onchange="changeMapRatio(this.value)" style="margin-bottom:8px;">
-            <option value="40:40">40 × 40</option>
-            <option value="50:50">50 × 50</option>
-            <option value="80:80">80 × 80</option>
-        </select>
+    <div class="tool-group" id="save-area">
+        <label>設計図コード</label>
         <div class="grid-2">
             <button class="tool-btn action-btn" onclick="exportData()">書き出し</button>
             <button class="tool-btn action-btn" onclick="confirmImport()">読み込み</button>
             <textarea id="data-text" placeholder="ここにコードを入力/出力" style="grid-column: span 2;"></textarea>
-            <button class="tool-btn action-btn full-width" onclick="downloadImage()" style="margin-top:5px">画像を保存 (PNG)</button>
+            <button class="tool-btn action-btn save-btn" onclick="downloadImage()">画像を保存 (PNG)</button>
         </div>
+        <div class="warning-text">※履歴削除等でデータが消えるため、コードの書き出し保存を推奨します。</div>
     </div>
     
     <div class="controls-hint">
-        <strong>【選択・移動】</strong><br>
-        ・クリック：施設を選択状態にする（保持）<br>
-        ・ドラッグ：選択中の施設をまとめて移動<br>
-        ・背景ドラッグ：範囲内の施設を一括選択<br>
-        <strong>【コピー＆ペースト】</strong><br>
-        ・<strong>Ctrl + C</strong>：選択中のグループをコピー<br>
-        ・<strong>Ctrl + V</strong>：マウス位置に貼り付け<br>
-        <strong>【共通】</strong><br>
-        ・<strong>R</strong>：回転 / <strong>中クリック</strong>：画面移動
+        <strong>【移動/設置】</strong>左ドラッグ / <strong>R</strong>で回転<br>
+        <strong>【一括操作】</strong>範囲選択 or 個別選択<br>
+        <strong>【コピー】</strong><strong>Ctrl + C</strong> (選択中のみ有効)<br>
+        <strong>【ペースト】</strong><strong>Ctrl + V</strong> (最後にコピーしたグループ)<br>
+        <strong>【全体回転】</strong><strong>Ctrl + R</strong><br>
+        <strong>【画面移動】</strong>中ボタンドラッグ
     </div>
 </div>
 
@@ -175,9 +191,14 @@
     const mainArea = document.getElementById('main');
     const baseGridSize = 30;
     
-    let mapW = 40; let mapH = 40;
-    let scale = 0.25; let offsetX = 0; let offsetY = 0;
+    let mapW = 40;
+    let mapH = 40;
+    let scale = 0.25; 
+    let offsetX = 0;
+    let offsetY = 0;
     let isDraggingMap = false;
+    let draggingItem = null;
+    let dragStartPos = { x: 0, y: 0 };
     let lastMousePos = { x: 0, y: 0 };
     let placedItems = [];
     let currentTool = null; 
@@ -190,20 +211,42 @@
     let clipboard = null;
     let isDraggingSelection = false;
     let dragOffset = { x: 0, y: 0 };
-    let initialDragPositions = [];
 
     function showModal(text, isConfirm, onOk) {
         const overlay = document.getElementById('modal-overlay');
         const textEl = document.getElementById('modal-text');
+        const okBtn = document.getElementById('modal-ok-btn');
+        const cancelBtn = document.getElementById('modal-cancel-btn');
         textEl.innerText = text; overlay.style.display = 'flex';
-        document.getElementById('modal-cancel-btn').style.display = isConfirm ? 'inline-block' : 'none';
-        document.getElementById('modal-ok-btn').onclick = () => { overlay.style.display = 'none'; if(onOk) onOk(); };
-        document.getElementById('modal-cancel-btn').onclick = () => { overlay.style.display = 'none'; };
+        cancelBtn.style.display = isConfirm ? 'inline-block' : 'none';
+        okBtn.onclick = () => { overlay.style.display = 'none'; if(onOk) onOk(); };
+        cancelBtn.onclick = () => { overlay.style.display = 'none'; };
     }
 
-    function setSelectMode() { currentTool = null; updateActionBtns('btn-select'); }
+    function confirmClear() {
+        showModal('配置したすべての設備を削除しますか？', true, () => {
+            placedItems = []; selectedItems = []; updateStats(); autoSave();
+        });
+    }
+
+    function confirmImport() {
+        const dataArea = document.getElementById('data-text');
+        if (!dataArea.value.trim()) return showModal('コードを入力してください', false);
+        showModal('設計図を読み込みますか？現在の配置は上書きされます。', true, () => {
+            try {
+                const decoded = JSON.parse(decodeURIComponent(escape(atob(dataArea.value))));
+                placedItems = decoded; selectedItems = []; updateStats(); autoSave();
+            } catch (e) { showModal('無効なコードです', false); }
+        });
+    }
+
+    function setTool(config) {
+        currentTool = JSON.parse(JSON.stringify(config)); currentTool.angle = 0;
+        selectedItems = []; updateActionBtns('btn-none');
+    }
     function setEraser() { currentTool = { id: 'eraser' }; selectedItems = []; updateActionBtns('btn-eraser'); }
-    function setTool(config) { currentTool = JSON.parse(JSON.stringify(config)); currentTool.angle = 0; selectedItems = []; updateActionBtns('btn-none'); }
+    function setMoveMode() { currentTool = null; selectedItems = []; updateActionBtns('btn-move'); }
+    function setMultiMode() { currentTool = { id: 'multi' }; updateActionBtns('btn-multi'); }
 
     function updateActionBtns(id) {
         document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
@@ -211,23 +254,53 @@
         renderButtons();
     }
 
-    function isAreaOccupied(x, y, w, h, ignoreItems = []) {
-        return placedItems.some(i => !ignoreItems.includes(i) && x < i.x + i.w && x + w > i.x && y < i.y + i.h && y + h > i.y);
+    function copySelection() {
+        if (selectedItems.length === 0) return;
+        const minX = Math.min(...selectedItems.map(i => i.x));
+        const minY = Math.min(...selectedItems.map(i => i.y));
+        clipboard = selectedItems.map(item => ({
+            ...JSON.parse(JSON.stringify(item)),
+            offsetX: item.x - minX,
+            offsetY: item.y - minY
+        }));
     }
+    function startPaste() { if (clipboard) { currentTool = { id: 'paste' }; selectedItems = []; updateActionBtns('btn-none'); } }
+
+    function rotateItem(item) {
+        if (!item) return;
+        const temp = item.w; item.w = item.h; item.h = temp;
+        item.angle = ((item.angle || 0) + 1) % 4;
+    }
+    function rotateMap() {
+        placedItems.forEach(item => {
+            const oldX = item.x; const oldY = item.y; const oldW = item.w; const oldH = item.h;
+            item.x = mapH - oldY - oldH; item.y = oldX; item.w = oldH; item.h = oldW;
+            item.angle = ((item.angle || 0) + 1) % 4;
+        });
+        updateStats(); autoSave();
+    }
+
+    window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if (e.ctrlKey && key === 'r') { e.preventDefault(); rotateMap(); return; }
+        if (e.ctrlKey && key === 'c') { copySelection(); return; }
+        if (e.ctrlKey && key === 'v') { startPaste(); return; }
+        if (key === 'r') {
+            if (draggingItem) rotateItem(draggingItem);
+            else if (currentTool && !['eraser','multi','paste'].includes(currentTool.id)) rotateItem(currentTool);
+        }
+        if (key === 'escape') setMoveMode();
+    });
 
     mainArea.addEventListener('mousedown', (e) => {
         if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
         if (e.button !== 0) return;
-
         const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
 
-        // 削除モード
         if (currentTool && currentTool.id === 'eraser') {
             if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
             return;
         }
-
-        // ペーストモード
         if (currentTool && currentTool.id === 'paste') {
             clipboard.forEach(cb => {
                 const newItem = JSON.parse(JSON.stringify(cb));
@@ -236,201 +309,185 @@
             });
             updateStats(); autoSave(); return;
         }
-
-        // 設置ツール選択中
-        if (currentTool && !['eraser','paste'].includes(currentTool.id)) {
-            const px = Math.min(mapW - currentTool.w, mouseGrid.x); const py = Math.min(mapH - currentTool.h, mouseGrid.y);
-            if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) {
-                const newItem = JSON.parse(JSON.stringify(currentTool));
-                newItem.x = px; newItem.y = py; placedItems.push(newItem); updateStats(); autoSave();
-            }
+        if (currentTool && currentTool.id === 'multi') {
+            if (target) {
+                if (selectedItems.includes(target)) { isDraggingSelection = true; dragOffset = { x: mouseGrid.x, y: mouseGrid.y }; }
+                else { if (!e.shiftKey) selectedItems = []; selectedItems.push(target); }
+            } else { selectionBox = { x1: mouseGrid.x, y1: mouseGrid.y, x2: mouseGrid.x, y2: mouseGrid.y }; }
             return;
         }
-
-        // 選択・移動モード (統合)
-        if (target) {
-            if (selectedItems.includes(target)) {
-                // 選択済みをクリックした場合、ドラッグ準備 or 単体クリックなら後で解除
-                isDraggingSelection = true;
-                dragOffset = { x: mouseGrid.x, y: mouseGrid.y };
-                initialDragPositions = selectedItems.map(i => ({ x: i.x, y: i.y }));
-                target._clicking = true; // クリックのみかドラッグかの判定用
-            } else {
-                // 未選択をクリック：追加選択
-                selectedItems.push(target);
-                isDraggingSelection = true;
-                dragOffset = { x: mouseGrid.x, y: mouseGrid.y };
-                initialDragPositions = selectedItems.map(i => ({ x: i.x, y: i.y }));
+        if (target) { draggingItem = target; dragStartPos = { x: target.x, y: target.y }; }
+        else if (currentTool && !['multi','eraser','paste'].includes(currentTool.id)) {
+            const px = Math.min(mapW - currentTool.w, mouseGrid.x);
+            const py = Math.min(mapH - currentTool.h, mouseGrid.y);
+            if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) {
+                const newItem = JSON.parse(JSON.stringify(currentTool));
+                newItem.x = px; newItem.y = py;
+                placedItems.push(newItem); updateStats(); autoSave();
             }
-        } else {
-            // 背景クリック：範囲選択開始
-            selectionBox = { x1: mouseGrid.x, y1: mouseGrid.y, x2: mouseGrid.x, y2: mouseGrid.y };
-            if (!e.shiftKey) selectedItems = []; // Shiftなしなら一旦クリア（ここはお好みで）
         }
     });
 
     window.addEventListener('mousemove', (e) => {
         const rect = mainArea.getBoundingClientRect();
         if (isDraggingMap) { offsetX += e.clientX - lastMousePos.x; offsetY += e.clientY - lastMousePos.y; lastMousePos = { x: e.clientX, y: e.clientY }; }
-        
-        const worldX = (e.clientX - rect.left - offsetX) / scale;
-        const worldY = (e.clientY - rect.top - offsetY) / scale;
+        const worldX = (e.clientX - rect.left - offsetX) / scale; const worldY = (e.clientY - rect.top - offsetY) / scale;
         const newX = Math.max(0, Math.min(mapW, Math.floor(worldX / baseGridSize)));
         const newY = Math.max(0, Math.min(mapH, Math.floor(worldY / baseGridSize)));
 
         if (selectionBox) { selectionBox.x2 = newX; selectionBox.y2 = newY; }
         else if (isDraggingSelection) {
             const dx = newX - dragOffset.x; const dy = newY - dragOffset.y;
-            if (dx !== 0 || dy !== 0) {
-                selectedItems.forEach(item => { item._clicking = false; item.x += dx; item.y += dy; });
-                dragOffset = { x: newX, y: newY };
-            }
+            if (dx !== 0 || dy !== 0) { selectedItems.forEach(item => { item.x += dx; item.y += dy; }); dragOffset = { x: newX, y: newY }; }
         }
         mouseGrid.x = newX; mouseGrid.y = newY; updateStatus();
     });
 
-    window.addEventListener('mouseup', (e) => {
+    window.addEventListener('mouseup', () => {
         if (selectionBox) {
             const xMin = Math.min(selectionBox.x1, selectionBox.x2); const xMax = Math.max(selectionBox.x1, selectionBox.x2);
             const yMin = Math.min(selectionBox.y1, selectionBox.y2); const yMax = Math.max(selectionBox.y1, selectionBox.y2);
-            const boxed = placedItems.filter(item => item.x <= xMax && item.x + item.w - 1 >= xMin && item.y <= yMax && item.y + item.h - 1 >= yMin);
-            boxed.forEach(i => { if(!selectedItems.includes(i)) selectedItems.push(i); });
+            selectedItems = placedItems.filter(item => item.x < xMax + 1 && item.x + item.w > xMin && item.y < yMax + 1 && item.y + item.h > yMin);
             selectionBox = null;
         }
-        if (isDraggingSelection) {
-            // ドラッグせずにクリックしただけなら、選択を解除（トグル）
-            selectedItems.forEach((item, idx) => {
-                if (item._clicking) {
-                    const target = placedItems.find(it => mouseGrid.x >= it.x && mouseGrid.x < it.x + it.w && mouseGrid.y >= it.y && mouseGrid.y < it.y + it.h);
-                    if (target === item) selectedItems = selectedItems.filter(s => s !== item);
-                    delete item._clicking;
-                }
-                // 衝突判定
-                if (isAreaOccupied(item.x, item.y, item.w, item.h, selectedItems)) {
-                    selectedItems.forEach((it, i) => { it.x = initialDragPositions[i].x; it.y = initialDragPositions[i].y; });
-                }
-            });
+        if (draggingItem) {
+            const px = Math.min(mapW - draggingItem.w, mouseGrid.x); const py = Math.min(mapH - draggingItem.h, mouseGrid.y);
+            if (isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem)) { draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; }
+            else { draggingItem.x = px; draggingItem.y = py; }
+            draggingItem = null; updateStats(); autoSave();
         }
-        isDraggingSelection = false; isDraggingMap = false; mainArea.classList.remove('dragging-map');
-        updateStats(); autoSave();
+        isDraggingSelection = false; isDraggingMap = false; mainArea.classList.remove('dragging-map', 'dragging-item');
     });
 
-    // キー操作系
-    window.addEventListener('keydown', (e) => {
-        const key = e.key.toLowerCase();
-        if (e.ctrlKey && key === 'c') { 
-            if (selectedItems.length > 0) {
-                const minX = Math.min(...selectedItems.map(i => i.x)); const minY = Math.min(...selectedItems.map(i => i.y));
-                clipboard = selectedItems.map(item => ({ ...JSON.parse(JSON.stringify(item)), offsetX: item.x - minX, offsetY: item.y - minY }));
-            }
-            return;
-        }
-        if (e.ctrlKey && key === 'v') { if (clipboard) { currentTool = { id: 'paste' }; selectedItems = []; updateActionBtns('btn-none'); } return; }
-        if (key === 'r') {
-            if (selectedItems.length > 0) { selectedItems.forEach(rotateItem); }
-            else if (currentTool && !['eraser','paste'].includes(currentTool.id)) rotateItem(currentTool);
-        }
-        if (key === 'escape') setSelectMode();
-        if (key === 'delete' || key === 'backspace') { if(selectedItems.length > 0) { placedItems = placedItems.filter(i => !selectedItems.includes(i)); selectedItems = []; updateStats(); autoSave(); } }
-    });
-
-    function rotateItem(item) { const temp = item.w; item.w = item.h; item.h = temp; item.angle = ((item.angle || 0) + 1) % 4; }
-
-    // 以下、描画・ユーティリティロジック (変更なし)
     function drawLabel(context, text, x, y, itemW, itemH, angle = 0) {
+        const pxW = itemW * baseGridSize; const pxH = itemH * baseGridSize;
         context.save(); context.translate(x, y); context.rotate(angle * Math.PI / 2);
-        context.strokeStyle = "rgba(0, 0, 0, 0.8)"; context.lineWidth = 2;
-        const triSize = Math.min(7, (itemW * baseGridSize)/3.5);
-        context.beginPath(); context.moveTo(0, -(itemH*baseGridSize)/2 + 2); context.lineTo(-triSize, -(itemH*baseGridSize)/2 + triSize * 1.2); context.lineTo(triSize, -(itemH*baseGridSize)/2 + triSize * 1.2); context.closePath();
+        context.strokeStyle = "rgba(0, 0, 0, 0.8)"; context.lineWidth = 2; context.lineJoin = "round";
+        const triSize = Math.min(7, pxW/3.5); const topY = -pxH/2 + 2;
+        context.beginPath(); context.moveTo(0, topY); context.lineTo(-triSize, topY + triSize * 1.2); context.lineTo(triSize, topY + triSize * 1.2); context.closePath();
         context.stroke(); context.fillStyle = "#ffcf00"; context.fill(); context.restore();
-        context.font = `bold ${(itemW===1||itemH===1)?11:13}px sans-serif`; context.textAlign = "center"; context.textBaseline = "middle";
-        context.fillStyle = "rgba(0, 0, 0, 0.8)"; context.fillText(text.substring(0,4), x+0.5, y+0.5);
-        context.fillStyle = "#fff"; context.fillText(text.substring(0,4), x, y);
+
+        let fontSize = (itemW === 1 || itemH === 1) ? 11 : 13;
+        context.font = `bold ${fontSize}px sans-serif`; context.textAlign = "center"; context.textBaseline = "middle";
+        const maxW = pxW - 4; let displayName = text;
+        if (context.measureText(displayName).width > maxW) {
+            let shortName = text[0] + "...";
+            if (context.measureText(shortName).width <= maxW) {
+                displayName = shortName;
+                for (let i = 2; i < text.length; i++) {
+                    let test = text.substring(0, i) + "...";
+                    if (context.measureText(test).width <= maxW) displayName = test; else break;
+                }
+            } else displayName = text[0];
+        }
+        context.fillStyle = "rgba(0, 0, 0, 0.85)"; context.fillText(displayName, x + 0.5, y + 0.5);
+        context.fillStyle = "#fff"; context.fillText(displayName, x, y);
     }
 
     function draw() {
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.translate(offsetX, offsetY); ctx.scale(scale, scale);
-        ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid'); ctx.lineWidth = 1/scale;
+        ctx.strokeStyle = varProp('--grid'); ctx.lineWidth = 1/scale;
         for(let i=0; i<=mapW; i++) { ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke(); }
         for(let j=0; j<=mapH; j++) { ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke(); }
 
+        const activePreview = draggingItem || (currentTool && !['eraser','multi','paste'].includes(currentTool.id) ? currentTool : null);
+        const px = activePreview ? Math.min(mapW - activePreview.w, mouseGrid.x) : -100;
+        const py = activePreview ? Math.min(mapH - activePreview.h, mouseGrid.y) : -100;
+
         placedItems.forEach(item => {
-            ctx.fillStyle = item.color; ctx.globalAlpha = selectedItems.includes(item) ? 0.4 : 0.8;
+            ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem || selectedItems.includes(item)) ? 0.3 : 0.8;
             ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
-            if (selectedItems.includes(item)) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 3/scale; ctx.strokeRect(item.x*baseGridSize, item.y*baseGridSize, item.w*baseGridSize, item.h*baseGridSize); }
-            ctx.globalAlpha = 1.0; drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
+            if (selectedItems.includes(item)) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2/scale; ctx.strokeRect(item.x*baseGridSize, item.y*baseGridSize, item.w*baseGridSize, item.h*baseGridSize); }
+            if (item !== draggingItem) { ctx.globalAlpha = 1.0; drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0); }
+            if(item.range > 0 && !selectedItems.includes(item)) {
+                let show = false; if(activePreview) {
+                    const cx = item.x + 0.5; const cy = item.y + 0.5;
+                    if (px < cx + item.range && px + activePreview.w > cx - item.range && py < cy + item.range && py + activePreview.h > cy - item.range) show = true;
+                }
+                if(show) { ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]); ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize); ctx.setLineDash([]); }
+            }
         });
 
         if (selectionBox) {
-            ctx.strokeStyle = "#ffcf00"; ctx.lineWidth = 1/scale; ctx.strokeRect(selectionBox.x1*baseGridSize, selectionBox.y1*baseGridSize, (selectionBox.x2-selectionBox.x1)*baseGridSize, (selectionBox.y2-selectionBox.y1)*baseGridSize);
+            ctx.strokeStyle = varProp('--accent'); ctx.lineWidth = 1/scale;
+            ctx.strokeRect(selectionBox.x1*baseGridSize, selectionBox.y1*baseGridSize, (selectionBox.x2-selectionBox.x1)*baseGridSize, (selectionBox.y2-selectionBox.y1)*baseGridSize);
             ctx.fillStyle = "rgba(255, 207, 0, 0.1)"; ctx.fillRect(selectionBox.x1*baseGridSize, selectionBox.y1*baseGridSize, (selectionBox.x2-selectionBox.x1)*baseGridSize, (selectionBox.y2-selectionBox.y1)*baseGridSize);
         }
-        
         if (currentTool && currentTool.id === 'paste' && clipboard) {
             ctx.globalAlpha = 0.5; clipboard.forEach(cb => {
                 const curX = mouseGrid.x + cb.offsetX; const curY = mouseGrid.y + cb.offsetY;
                 ctx.fillStyle = isAreaOccupied(curX, curY, cb.w, cb.h) ? "red" : cb.color;
                 ctx.fillRect(curX*baseGridSize, curY*baseGridSize, cb.w*baseGridSize, cb.h*baseGridSize);
             });
-        } else if (currentTool && !['eraser'].includes(currentTool.id)) {
-            const px = Math.min(mapW - currentTool.w, mouseGrid.x); const py = Math.min(mapH - currentTool.h, mouseGrid.y);
-            ctx.globalAlpha = 0.5; ctx.fillStyle = isAreaOccupied(px, py, currentTool.w, currentTool.h) ? 'red' : currentTool.color;
-            ctx.fillRect(px*baseGridSize, py*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
-            ctx.globalAlpha = 1.0; drawLabel(ctx, currentTool.name, (px + currentTool.w/2)*baseGridSize, (py + currentTool.h/2)*baseGridSize, currentTool.w, currentTool.h, currentTool.angle || 0);
+        }
+        if(activePreview) {
+            ctx.globalAlpha = 0.5; const occupied = isAreaOccupied(px, py, activePreview.w, activePreview.h, draggingItem);
+            ctx.fillStyle = occupied ? 'red' : activePreview.color; ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
+            ctx.globalAlpha = 1.0; drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w, activePreview.h, activePreview.angle || 0);
         }
         requestAnimationFrame(draw);
     }
 
-    // 補助関数群
-    function updateStats() {
-        let pwr = 0; placedItems.forEach(i => pwr += (i.power || 0));
-        document.getElementById('sum-power').innerText = pwr;
-        allBuildings.forEach(b => {
-            const count = placedItems.filter(i => i.id === b.id).length;
-            const el = document.getElementById(`count-${b.id}`); if(el) el.innerText = count;
-        });
+    function varProp(name) { return getComputedStyle(document.body).getPropertyValue(name).trim(); }
+    function isAreaOccupied(x, y, w, h, ignore = null) { return placedItems.some(i => i !== ignore && x < i.x + i.w && x + w > i.x && y < i.y + i.h && y + h > i.y); }
+    function updateStatus() { document.getElementById('status').innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; }
+    function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
+    function autoLoad() { const saved = localStorage.getItem('endfield_save'); if (saved) try { placedItems = JSON.parse(saved); } catch (e) {} }
+    function changeMapRatio(val) { const [w, h] = val.split(':').map(Number); mapW = w; mapH = h; canvas.width = mapW * baseGridSize; canvas.height = mapH * baseGridSize; centerMap(); }
+    function centerMap() { const rect = mainArea.getBoundingClientRect(); offsetX = (rect.width - mapW * baseGridSize * scale) / 2; offsetY = (rect.height - mapH * baseGridSize * scale) / 2; updateStatus(); }
+    function toggleSidebar() { document.body.classList.toggle('sidebar-closed'); document.getElementById('toggle-sidebar').innerText = document.body.classList.contains('sidebar-closed') ? '▶' : '◀'; setTimeout(centerMap, 310); }
+
+    async function loadConfig() {
+        try {
+            const response = await fetch('data.json?t=' + new Date().getTime());
+            const data = await response.json(); allBuildings = data.buildings || [];
+            const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
+            const catContainer = document.getElementById('category-filters');
+            cats.forEach(c => { const btn = document.createElement('button'); btn.className = 'cat-btn'; btn.innerText = c; btn.onclick = () => filterCategory(c); catContainer.appendChild(btn); });
+            changeMapRatio("40:40"); renderButtons(); autoLoad(); updateStats();
+        } catch (err) { console.error(err); }
     }
-    function filterCategory(c) { currentCategory = c; document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('active', b.innerText === c || (c==='all' && b.id==='cat-all'))); renderButtons(); }
+
     function renderButtons() {
         const container = document.getElementById('buildings-container'); if(!container) return; container.innerHTML = '';
         allBuildings.filter(b => currentCategory === 'all' || b.category === currentCategory).forEach(b => {
             const btn = document.createElement('button'); btn.className = 'tool-btn' + (currentTool && currentTool.id === b.id ? ' active' : '');
-            btn.innerHTML = `<span>${b.name}</span><span class="count-badge" id="count-${b.id}">0</span>`;
-            btn.onclick = () => setTool(b); container.appendChild(btn);
+            btn.id = 'btn-' + b.id; btn.innerHTML = `<span>${b.name}</span><span class="count-badge" id="count-${b.id}">0</span>`; 
+            btn.setAttribute('data-size', `${b.w}×${b.h}`); btn.onclick = () => setTool(b); container.appendChild(btn);
         });
         updateStats();
     }
-    function toggleSidebar() { document.body.classList.toggle('sidebar-closed'); document.getElementById('toggle-sidebar').innerText = document.body.classList.contains('sidebar-closed')?'▶':'◀'; setTimeout(centerMap, 310); }
-    function changeMapRatio(v) { [mapW, mapH] = v.split(':').map(Number); canvas.width = mapW*baseGridSize; canvas.height = mapH*baseGridSize; centerMap(); }
-    function centerMap() { const r = mainArea.getBoundingClientRect(); offsetX = (r.width - mapW*baseGridSize*scale)/2; offsetY = (r.height - mapH*baseGridSize*scale)/2; }
-    function exportData() { document.getElementById('data-text').value = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems)))); showModal('設計図を書き出しました', false); }
-    function confirmClear() { showModal('全て削除しますか？', true, () => { placedItems=[]; selectedItems=[]; updateStats(); autoSave(); }); }
-    function confirmImport() { try { placedItems = JSON.parse(decodeURIComponent(escape(atob(document.getElementById('data-text').value)))); selectedItems=[]; updateStats(); autoSave(); } catch(e){ showModal('コードが正しくありません', false); } }
-    function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
-    function autoLoad() { const s = localStorage.getItem('endfield_save'); if(s) placedItems = JSON.parse(s); }
-    function downloadImage() { 
-        const eC = document.getElementById('exportCanvas'); const eCtx = eC.getContext('2d');
-        eC.width = mapW*baseGridSize; eC.height = mapH*baseGridSize;
-        eCtx.fillStyle = "#121416"; eCtx.fillRect(0,0,eC.width,eC.height);
-        placedItems.forEach(i => { eCtx.fillStyle = i.color; eCtx.fillRect(i.x*baseGridSize+1, i.y*baseGridSize+1, i.w*baseGridSize-2, i.h*baseGridSize-2); drawLabel(eCtx, i.name, (i.x+i.w/2)*baseGridSize, (i.y+i.h/2)*baseGridSize, i.w, i.h, i.angle||0); });
-        const l = document.createElement('a'); l.download = "plan.png"; l.href = eC.toDataURL(); l.click();
+
+    function downloadImage() {
+        if (placedItems.length === 0) return showModal("設備がありません。", false);
+        const expCanvas = document.getElementById('exportCanvas'); const expCtx = expCanvas.getContext('2d');
+        expCanvas.width = mapW * baseGridSize; expCanvas.height = mapH * baseGridSize;
+        expCtx.fillStyle = varProp('--bg'); expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
+        expCtx.strokeStyle = varProp('--grid'); expCtx.lineWidth = 1;
+        for(let i=0; i<=mapW; i++) { expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, expCanvas.height); expCtx.stroke(); }
+        for(let j=0; j<=mapH; j++) { expCtx.beginPath(); expCtx.moveTo(0, j*baseGridSize); expCtx.lineTo(expCanvas.width, j*baseGridSize); expCtx.stroke(); }
+        placedItems.forEach(item => { 
+            expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9; expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2); 
+            expCtx.globalAlpha = 1.0; drawLabel(expCtx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
+        });
+        const link = document.createElement('a'); link.download = `endfield_plan.png`; link.href = expCanvas.toDataURL('image/png'); link.click();
     }
 
+    function exportData() {
+        const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
+        const dataArea = document.getElementById('data-text'); if(dataArea) { dataArea.value = code; showModal('コードを書き出しました。', false); }
+    }
+
+    mainArea.addEventListener('contextmenu', e => e.preventDefault());
     mainArea.addEventListener('wheel', (e) => { 
-        e.preventDefault(); const d = e.deltaY>0?-0.05:0.05; const nS = Math.min(Math.max(0.1, scale+d), 1.5);
-        if(nS !== scale) { const r = mainArea.getBoundingClientRect(); const mx = e.clientX-r.left; const my = e.clientY-r.top;
-        offsetX -= (mx-offsetX)*(nS/scale-1); offsetY -= (my-offsetY)*(nS/scale-1); scale=nS; updateStatus(); }
-    }, {passive:false});
-    function updateStatus() { document.getElementById('status').innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale*100)}%`; }
+        e.preventDefault(); const delta = e.deltaY > 0 ? -0.05 : 0.05; const newScale = Math.min(Math.max(0.1, scale + delta), 1.5);
+        if (newScale !== scale) { const rect = mainArea.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+            offsetX -= (mx - offsetX) * (newScale / scale - 1); offsetY -= (my - offsetY) * (newScale / scale - 1); scale = newScale; updateStatus(); }
+    }, { passive: false });
 
-    async function loadConfig() {
-        const r = await fetch('data.json?t='+Date.now()); const d = await r.json(); allBuildings = d.buildings || [];
-        const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
-        cats.forEach(c => { const b = document.createElement('button'); b.className='cat-btn'; b.innerText=c; b.onclick=()=>filterCategory(c); document.getElementById('category-filters').appendChild(b); });
-        changeMapRatio("40:40"); autoLoad(); renderButtons(); draw();
-    }
-    loadConfig();
+    window.addEventListener('resize', centerMap);
+    loadConfig(); draw();
 </script>
 </body>
 </html>
