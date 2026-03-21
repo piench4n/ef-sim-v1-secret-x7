@@ -58,8 +58,11 @@
         .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); opacity: 1; box-shadow: 0 0 10px rgba(255, 207, 0, 0.3); }
         
         .action-btn { font-weight: bold; }
-        .save-btn { background: var(--success); color: white; border: none; grid-column: span 2; opacity: 1; }
-        .save-btn:hover { background: #27ae60; }
+        #dynamic-tools .tool-btn { text-align: left; padding-left: 12px; margin: 4px 0; }
+
+        /* 保存ボタンも他のアクションボタンと同じスタイルを継承するように修正 */
+        .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
+        .save-btn:hover { opacity: 1; }
 
         .theme-select { width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; outline: none; cursor: pointer; font-weight: bold; }
 
@@ -91,7 +94,11 @@
 
 <div id="sidebar">
     <h2>工業設計端末</h2>
-    <div id="dynamic-tools"><label>設備一覧</label></div>
+    
+    <div class="tool-group" id="dynamic-tools">
+        <label>設備一覧</label>
+        <div id="buildings-container">読み込み中...</div>
+    </div>
 
     <div class="tool-group">
         <label>基本操作</label>
@@ -136,7 +143,6 @@
 <canvas id="exportCanvas" style="display:none;"></canvas>
 
 <script>
-    // JS部分は変更なしのため維持
     const canvas = document.getElementById('gridCanvas');
     const ctx = canvas.getContext('2d');
     const mainArea = document.getElementById('main');
@@ -244,12 +250,12 @@
             autoLoad();
             loadTheme();
             centerMap();
-        } catch (err) { document.getElementById('dynamic-tools').innerHTML = "JSONエラー"; }
+        } catch (err) { document.getElementById('buildings-container').innerHTML = "JSONエラー"; }
     }
 
     function renderButtons(buildings) {
-        const container = document.getElementById('dynamic-tools');
-        container.innerHTML = '<label>設備一覧</label>';
+        const container = document.getElementById('buildings-container');
+        container.innerHTML = '';
         buildings.forEach((b, index) => {
             const btn = document.createElement('button');
             btn.className = 'tool-btn';
