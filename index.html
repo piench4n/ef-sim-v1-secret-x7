@@ -2,7 +2,9 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Endfield Industrial Planner - Web Edition</title>
+    <meta name="robots" content="noindex,nofollow">
+    
+    <title>Endfield Industrial Planner - Private Edition</title>
     <style>
         :root { --bg: #1a1c1e; --panel: #2d2f31; --accent: #ffcf00; --text: #e0e0e0; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
@@ -22,7 +24,7 @@
 <body>
 
 <div id="sidebar">
-    <h2>工業設計端末</h2>
+    <h2>工業設計端末 (Private)</h2>
     <div id="dynamic-tools">
         <p style="font-size: 0.8em; color: #888;">データを読み込み中...</p>
     </div>
@@ -52,10 +54,10 @@
     let currentTool = null;
     let mouseGrid = { x: 0, y: 0 };
 
-    // --- JSONデータの読み込み ---
     async function loadConfig() {
         try {
-            const response = await fetch('data.json'); // 同じフォルダのJSONを読み込む
+            // キャッシュによる更新遅延を防ぐため、タイムスタンプを付与
+            const response = await fetch('data.json?t=' + new Date().getTime());
             const data = await response.json();
             renderButtons(data.buildings);
         } catch (err) {
@@ -74,8 +76,6 @@
             btn.innerHTML = `${b.name} (${b.w}x${b.h})`;
             btn.onclick = () => setTool(b);
             container.appendChild(btn);
-            
-            // 最初のアイテムをデフォルト選択
             if (index === 0) setTool(b);
         });
     }
@@ -92,7 +92,6 @@
         document.getElementById('btn-eraser').classList.add('active');
     }
 
-    // --- 描画・操作ロジック (基本は前回と同じ) ---
     function isAreaOccupied(x, y, w, h) {
         return placedItems.some(item => x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y);
     }
