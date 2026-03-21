@@ -48,9 +48,10 @@
         label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; text-shadow: var(--text-outline); }
         h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); text-shadow: var(--text-outline); }
         
-        #summary-panel { font-size: 0.85em; line-height: 1.6; border-left: 3px solid var(--accent); padding-left: 10px; margin-bottom: 10px; }
+        /* 統合された統計表示スタイル */
+        #summary-panel { font-size: 0.85em; line-height: 1.6; border-bottom: 1px solid var(--btn-border); padding-bottom: 8px; margin-bottom: 12px; }
         .summary-item { display: flex; justify-content: space-between; }
-        .val-stat { color: var(--accent); }
+        .val-stat { color: var(--accent); font-weight: bold; }
 
         .cat-container { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
         .cat-btn { font-size: 0.7em; padding: 4px 8px; background: var(--btn-idle); border: 1px solid var(--btn-border); color: var(--text); border-radius: 3px; cursor: pointer; }
@@ -110,16 +111,12 @@
 <div id="sidebar">
     <h2>工業図面作成</h2>
 
-    <div class="tool-group">
-        <label>消費統計</label>
+    <div class="tool-group" id="dynamic-tools">
+        <label>設備状況</label>
         <div id="summary-panel">
             <div class="summary-item"><span>総消費電力:</span> <span id="sum-power" class="val-stat">0</span></div>
-            <div class="summary-item"><span>総資源生産量:</span> <span id="sum-resource" class="val-stat">0</span></div>
         </div>
-    </div>
-    
-    <div class="tool-group" id="dynamic-tools">
-        <label>設備一覧</label>
+        
         <div class="cat-container" id="category-filters">
             <button id="cat-all" class="cat-btn active" onclick="filterCategory('all')">すべて</button>
         </div>
@@ -219,19 +216,15 @@
 
     function updateStats() {
         let power = 0;
-        let resource = 0;
         const counts = {};
 
         placedItems.forEach(item => {
             if(item.power < 0) power += item.power;
-            resource += (item.resource || 0);
             counts[item.id] = (counts[item.id] || 0) + 1;
         });
 
         const pEl = document.getElementById('sum-power');
-        const rEl = document.getElementById('sum-resource');
         if(pEl) pEl.innerText = power;
-        if(rEl) rEl.innerText = resource;
 
         if(allBuildings) {
             allBuildings.forEach(b => {
@@ -257,7 +250,6 @@
             const data = await response.json();
             allBuildings = data.buildings || [];
             
-            // カテゴリボタンの生成（重複なし）
             const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
             const catContainer = document.getElementById('category-filters');
             cats.forEach(c => {
@@ -275,7 +267,7 @@
             updateStats();
         } catch (err) { 
             console.error(err);
-            document.getElementById('buildings-container').innerHTML = "JSON読み込みエラー：data.jsonを確認してください。"; 
+            document.getElementById('buildings-container').innerHTML = "JSON読み込みエラー"; 
         }
     }
 
@@ -294,7 +286,7 @@
             btn.onclick = () => setTool(b);
             container.appendChild(btn);
         });
-        updateStats(); // 描画後にカウントを反映
+        updateStats();
     }
 
     function setTool(config) {
@@ -435,10 +427,7 @@
     function exportData() {
         const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
         const dataArea = document.getElementById('data-text');
-        if(dataArea) {
-            dataArea.value = code;
-            alert("コードを書き出しました。");
-        }
+        if(dataArea) { dataArea.value = code; alert("コードを書き出しました。"); }
     }
 
     function importData() {
