@@ -40,8 +40,6 @@
         body.sidebar-closed #toggle-sidebar { left: 0; }
 
         .tool-group { border: 1px solid var(--btn-border); padding: 10px; border-radius: 4px; margin-bottom: 5px; text-align: left; }
-        
-        /* ボタンを2列に並べるための設定 */
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0; }
 
         label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -109,9 +107,9 @@
             <button class="tool-btn action-btn" onclick="exportData()">書き出し</button>
             <button class="tool-btn action-btn" onclick="importData()">読み込み</button>
             <textarea id="data-text" placeholder="ここにコードを入力/出力" style="grid-column: span 2;"></textarea>
-            <button class="tool-btn action-btn save-btn" onclick="downloadImage()">画像として保存 (PNG)</button>
+            <button class="tool-btn action-btn save-btn" onclick="downloadImage()">画像を保存 (PNG)</button>
         </div>
-        <div class="warning-text">⚠️ 履歴削除等でデータが消えるため、コードの書き出し保存を推奨。</div>
+        <div class="warning-text">消失注意：履歴削除等でデータが消えるため、コードの書き出し保存を推奨。</div>
     </div>
 
     <div class="tool-group">
