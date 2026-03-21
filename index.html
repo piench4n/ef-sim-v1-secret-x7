@@ -70,6 +70,7 @@
         .tool-btn[data-size]:hover .count-badge { visibility: hidden; }
 
         .action-btn { font-weight: bold; justify-content: center; text-align: center; }
+        .full-width { grid-column: span 2; } /* 2列分使うクラス */
         .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
         .save-btn:hover { opacity: 1; }
 
@@ -139,8 +140,9 @@
     <div class="tool-group">
         <label>基本操作</label>
         <div class="grid-2">
+            <button class="tool-btn action-btn active" onclick="setMoveMode()" id="btn-move">移動モード</button>
             <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser">削除モード</button>
-            <button class="tool-btn action-btn" onclick="confirmClear()" style="color:var(--danger)">すべて削除</button>
+            <button class="tool-btn action-btn full-width" onclick="confirmClear()" style="color:var(--danger)">すべて削除</button>
         </div>
     </div>
 
@@ -196,7 +198,7 @@
     let dragStartPos = { x: 0, y: 0 };
     let lastMousePos = { x: 0, y: 0 };
     let placedItems = [];
-    let currentTool = null;
+    let currentTool = null; // nullなら移動モード
     let mouseGrid = { x: 0, y: 0 };
     let allBuildings = [];
     let currentCategory = 'all';
@@ -312,26 +314,31 @@
         updateStats();
     }
 
+    // --- モード切替の修正 ---
     function setTool(config) {
         currentTool = config; renderButtons();
-        const eraserBtn = document.getElementById('btn-eraser');
-        if(eraserBtn) eraserBtn.classList.remove('active');
+        document.getElementById('btn-eraser').classList.remove('active');
+        document.getElementById('btn-move').classList.remove('active');
     }
 
     function setEraser() {
         currentTool = { id: 'eraser' }; renderButtons();
-        const eraserBtn = document.getElementById('btn-eraser');
-        if(eraserBtn) eraserBtn.classList.add('active');
+        document.getElementById('btn-eraser').classList.add('active');
+        document.getElementById('btn-move').classList.remove('active');
     }
 
-    // ラベル描画用ヘルパー：枠に収まるようにテキストを処理
+    function setMoveMode() {
+        currentTool = null; renderButtons();
+        document.getElementById('btn-eraser').classList.remove('active');
+        document.getElementById('btn-move').classList.add('active');
+    }
+
     function drawLabel(context, text, x, y, maxWidth) {
         const padding = 4;
         const availableW = maxWidth - padding * 2;
         context.font = "bold 10px sans-serif";
         context.textAlign = "center";
         context.textBaseline = "middle";
-        
         let displayName = text;
         if (context.measureText(displayName).width > availableW) {
             while (displayName.length > 0 && context.measureText(displayName + "...").width > availableW) {
@@ -339,10 +346,7 @@
             }
             displayName += "...";
         }
-        
-        // 文字が小さすぎて「...」すら入らない場合は描画しない
         if (context.measureText("...").width > availableW && availableW < 10) return;
-
         context.fillStyle = "rgba(0, 0, 0, 0.7)";
         context.fillText(displayName, x, y);
         context.fillStyle = "#fff";
@@ -367,13 +371,10 @@
         placedItems.forEach(item => {
             ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.15 : 0.8;
             ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
-            
-            // ラベル表示（ドラッグ中以外）
             if (item !== draggingItem) {
                 ctx.globalAlpha = 1.0;
                 drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w*baseGridSize);
             }
-
             if(item.range > 0 && item !== draggingItem) {
                 let shouldShowRange = false;
                 if(activePreview) {
@@ -397,10 +398,8 @@
             const occupied = isAreaOccupied(px, py, activePreview.w, activePreview.h, draggingItem);
             ctx.fillStyle = occupied ? 'red' : activePreview.color;
             ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
-            
             ctx.globalAlpha = 1.0;
             drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w*baseGridSize);
-
             if(activePreview.range > 0) {
                 ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
                 ctx.strokeRect((px-activePreview.range+0.5)*baseGridSize, (py-activePreview.range+0.5)*baseGridSize, (activePreview.range*2)*baseGridSize, (activePreview.range*2)*baseGridSize);
@@ -486,7 +485,6 @@
         expCtx.lineWidth = 1;
         for(let i=0; i<=mapW; i++) { expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, expCanvas.height); expCtx.stroke(); }
         for(let j=0; j<=mapH; j++) { expCtx.beginPath(); expCtx.moveTo(0, j*baseGridSize); expCtx.lineTo(expCanvas.width, j*baseGridSize); expCtx.stroke(); }
-        
         placedItems.forEach(item => { 
             expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9; 
             expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2); 
