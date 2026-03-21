@@ -190,7 +190,7 @@
         expCtx.lineWidth = 1;
         for(let i=0; i<=mapSize; i++) {
             expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, res); expCtx.stroke();
-            expCtx.beginPath(); expCtx.moveTo(0, i*baseGridSize); expCtx.lineTo(res, i*baseGridSize); expCtx.stroke();
+            expCtx.beginPath(); expCtx.moveTo(0, i*baseGridSize); expCtx.lineTo(res, i*baseGridSize, res); expCtx.stroke();
         }
         placedItems.forEach(item => {
             expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9;
@@ -328,8 +328,15 @@
         const rect = mainArea.getBoundingClientRect();
         const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
         if (isDraggingMap) { offsetX += e.clientX - lastMousePos.x; offsetY += e.clientY - lastMousePos.y; lastMousePos = { x: e.clientX, y: e.clientY }; }
+        
         const worldX = (mx - offsetX) / scale; const worldY = (my - offsetY) / scale;
-        mouseGrid.x = Math.floor(worldX / baseGridSize); mouseGrid.y = Math.floor(worldY / baseGridSize);
+        
+        // --- 座標を0〜99の範囲に制限する ---
+        let gx = Math.floor(worldX / baseGridSize);
+        let gy = Math.floor(worldY / baseGridSize);
+        mouseGrid.x = Math.max(0, Math.min(mapSize - 1, gx));
+        mouseGrid.y = Math.max(0, Math.min(mapSize - 1, gy));
+        
         updateStatus();
     });
 
