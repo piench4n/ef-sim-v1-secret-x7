@@ -51,32 +51,40 @@
         h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); text-shadow: var(--text-outline); }
         
         .tool-btn { 
-            width: 100%; padding: 10px 8px; margin: 0; 
+            width: 100%; padding: 10px 12px; margin: 0; 
             background: var(--btn-idle); border: 1px solid var(--btn-border); 
-            color: var(--text); cursor: pointer; text-align: center;
+            color: var(--text); cursor: pointer; text-align: left;
             transition: 0.2s; border-radius: 4px; 
-            font-size: 0.85em; display: block;
+            font-size: 0.85em; display: flex; align-items: center; justify-content: space-between;
             opacity: 0.8; box-sizing: border-box;
             white-space: nowrap;
-            position: relative; /* ツールチップの基準 */
+            position: relative;
         }
         .tool-btn:hover { background: rgba(255, 207, 0, 0.15); border-color: var(--accent); opacity: 1; }
         .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); opacity: 1; box-shadow: 0 0 10px rgba(255, 207, 0, 0.3); }
         
-        .action-btn { font-weight: bold; }
-        #dynamic-tools .tool-btn { text-align: left; padding-left: 12px; margin: 4px 0; }
-
-        /* ツールチップのデザイン */
+        /* ツールチップの修正：ボタン内の右端に表示するように変更 */
         .tool-btn::after {
             content: attr(data-size);
-            position: absolute; left: 105%; top: 50%; transform: translateY(-50%);
-            background: var(--tooltip-bg); color: #fff; padding: 4px 8px;
-            font-size: 11px; border-radius: 4px; pointer-events: none;
-            opacity: 0; transition: 0.2s; white-space: nowrap;
-            z-index: 200; border: 1px solid var(--accent);
+            font-size: 10px;
+            background: var(--tooltip-bg);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid var(--accent);
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            margin-left: 8px;
+            font-weight: normal;
+            text-shadow: none;
         }
-        .tool-btn:hover::after { opacity: 1; left: 110%; }
+        /* ホバー時のみ表示 */
+        .tool-btn:hover::after { opacity: 1; }
+        /* 選択中のボタンは黒文字なので、ツールチップ内の文字色も調整（任意） */
+        .tool-btn.active::after { color: #fff; }
 
+        .action-btn { font-weight: bold; justify-content: center; }
         .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
         .save-btn:hover { opacity: 1; }
 
@@ -273,9 +281,8 @@
             const btn = document.createElement('button');
             btn.className = 'tool-btn';
             btn.id = 'btn-' + b.id;
-            btn.innerHTML = `${b.name}`; 
-            // ツールチップ用のデータ属性を追加
-            btn.setAttribute('data-size', `${b.w} × ${b.h}`);
+            btn.innerHTML = `<span>${b.name}</span>`; 
+            btn.setAttribute('data-size', `${b.w}×${b.h}`);
             btn.onclick = () => setTool(b);
             container.appendChild(btn);
             if (index === 0) setTool(b);
@@ -285,7 +292,8 @@
     function setTool(config) {
         currentTool = config;
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-        if(document.getElementById('btn-' + config.id)) document.getElementById('btn-' + config.id).classList.add('active');
+        const activeBtn = document.getElementById('btn-' + config.id);
+        if(activeBtn) activeBtn.classList.add('active');
     }
 
     function setEraser() {
