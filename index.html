@@ -3,22 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="robots" content="noindex,nofollow">
-    <title>Endfield Industrial Planner - Save System</title>
+    <title>Endfield Industrial Planner - Image Export</title>
     <style>
-        :root { --bg: #1a1c1e; --panel: #2d2f31; --accent: #ffcf00; --text: #e0e0e0; --danger: #ff6b6b; --warning: #ffae00; }
+        :root { --bg: #1a1c1e; --panel: #2d2f31; --accent: #ffcf00; --text: #e0e0e0; --danger: #ff6b6b; --warning: #ffae00; --success: #2ecc71; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
         
         /* サイドバー */
-        #sidebar { width: 280px; background: var(--panel); border-right: 2px solid #444; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; z-index: 100; }
-        .tool-group { border: 1px solid #555; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+        #sidebar { width: 280px; background: var(--panel); border-right: 2px solid #444; padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 100; }
+        .tool-group { border: 1px solid #555; padding: 10px; border-radius: 4px; margin-bottom: 5px; }
         label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; }
+        h2 { margin-top: 0; font-size: 1.2em; border-bottom: 2px solid #444; padding-bottom: 5px; }
         
         /* ボタン類 */
-        .tool-btn { width: 100%; padding: 10px; margin: 4px 0; background: #3d3f41; border: 1px solid #555; color: white; cursor: pointer; text-align: left; transition: 0.2s; border-radius: 4px; font-size: 0.9em; }
+        .tool-btn { width: 100%; padding: 10px; margin: 4px 0; background: #3d3f41; border: 1px solid #555; color: white; cursor: pointer; text-align: left; transition: 0.2s; border-radius: 4px; font-size: 0.9em; display: flex; align-items: center; gap: 8px; }
         .tool-btn:hover { background: #4d4f51; }
         .tool-btn.active { background: var(--accent); color: black; font-weight: bold; }
-        .action-btn { background: #4a4d50; border: 1px solid #666; text-align: center; }
+        .action-btn { background: #4a4d50; border: 1px solid #666; justify-content: center; text-align: center; }
         .action-btn:active { background: #5a5d60; }
+        .save-btn { background: var(--success); border-color: #27ae60; color: white; justify-content: center; }
+        .save-btn:hover { background: #27ae60; }
 
         /* メインエリア */
         #main { flex: 1; position: relative; overflow: hidden; background: #111; cursor: crosshair; }
@@ -31,7 +34,7 @@
         .controls-hint { font-size: 0.7em; color: #888; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; }
         
         /* 保存用エリアと注意書き */
-        #save-area { margin-top: 10px; }
+        #save-area { margin-top: 5px; }
         textarea { width: 100%; height: 60px; background: #111; color: #0f0; border: 1px solid #444; font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
         .warning-text { font-size: 0.65em; color: var(--warning); margin-top: 8px; line-height: 1.4; border-top: 1px dashed #555; padding-top: 8px; }
     </style>
@@ -45,8 +48,9 @@
 
     <div class="tool-group">
         <label>基本操作</label>
-        <button class="tool-btn" onclick="setEraser()" id="btn-eraser">❌ 撤去モード</button>
-        <button class="tool-btn action-btn" onclick="clearCanvas()" style="color:var(--danger)">🗑 全消去</button>
+        <button class="tool-btn" onclick="setEraser()" id="btn-eraser"><span>❌</span> 撤去モード</button>
+        <button class="tool-btn action-btn save-btn" onclick="downloadImage()"><span>💾</span> 画像として保存 (PNG)</button>
+        <button class="tool-btn action-btn" onclick="clearCanvas()" style="color:var(--danger)"><span>🗑</span> 全消去</button>
     </div>
 
     <div class="tool-group" id="save-area">
@@ -65,10 +69,10 @@
     
     <div class="controls-hint">
         <strong>【操作ヘルプ】</strong><br>
-        ・移動：ホイール押し込み<br>
+        ・移動：マウスホイール押し込み<br>
         ・設置/移動：左クリック/ドラッグ<br>
         ・削除：右クリック<br>
-        ・ズーム：ホイール(30%~150%)
+        ・ズーム：マウスホイール(30%~150%)
     </div>
 </div>
 
@@ -77,12 +81,14 @@
     <div class="status-bar" id="status">座標: 0, 0 | ズーム: 100%</div>
 </div>
 
+<canvas id="exportCanvas" style="display:none;"></canvas>
+
 <script>
     const canvas = document.getElementById('gridCanvas');
     const ctx = canvas.getContext('2d');
     const mainArea = document.getElementById('main');
     const baseGridSize = 30;
-    const mapSize = 100;
+    const mapSize = 100; // 100x100
     
     let scale = 1.0;
     let offsetX = 0;
@@ -96,9 +102,70 @@
     let currentTool = null;
     let mouseGrid = { x: 0, y: 0 };
 
-    canvas.width = mapSize * baseGridSize;
-    canvas.height = mapSize * baseGridSize;
+    // キャンバスサイズの設定（高解像度対応）
+    const fullResolution = mapSize * baseGridSize; // 3000px
+    canvas.width = fullResolution;
+    canvas.height = fullResolution;
+    
+    // 表示上のサイズはCSSで制御（親要素に合わせる）ではなく、
+    // JSで動的にOffsetX/YとScaleを管理して描画する。
+    // Canvas自体のサイズはmapSize * baseGridSize固定。
 
+    // --- 画像ダウンロード機能 ---
+    function downloadImage() {
+        if (placedItems.length === 0) {
+            alert("配置された設備がありません。");
+            return;
+        }
+
+        // 1. 出力用のキャンバスを準備（表示用とは別のものを使う）
+        const expCanvas = document.getElementById('exportCanvas');
+        const expCtx = expCanvas.getContext('2d');
+        expCanvas.width = fullResolution;
+        expCanvas.height = fullResolution;
+
+        // 2. 背景を塗りつぶす（ゲーム風の濃い色）
+        expCtx.fillStyle = '#111111';
+        expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
+
+        // 3. グリッドを描画（出力用には少し明るく）
+        expCtx.strokeStyle = '#2a2a2a';
+        expCtx.lineWidth = 1;
+        for(let i=0; i<=mapSize; i++) {
+            expCtx.beginPath(); expCtx.moveTo(i * baseGridSize, 0); expCtx.lineTo(i * baseGridSize, fullResolution); expCtx.stroke();
+            expCtx.beginPath(); expCtx.moveTo(0, i * baseGridSize); expCtx.lineTo(fullResolution, i * baseGridSize); expCtx.stroke();
+        }
+
+        // 4. 設備を描画
+        placedItems.forEach(item => {
+            expCtx.fillStyle = item.color;
+            expCtx.globalAlpha = 0.9; // 出力用は少し濃いめに
+            // 設備本体
+            expCtx.fillRect(item.x * baseGridSize + 1, item.y * baseGridSize + 1, item.w * baseGridSize - 2, item.h * baseGridSize - 2);
+            
+            // 範囲描画（もしあれば）
+            if(item.range > 0) {
+                expCtx.strokeStyle = '#ffcf00';
+                expCtx.lineWidth = 2;
+                expCtx.setLineDash([8, 8]);
+                expCtx.strokeRect((item.x - item.range + 0.5) * baseGridSize, (item.y - item.range + 0.5) * baseGridSize, (item.range * 2) * baseGridSize, (item.range * 2) * baseGridSize);
+                expCtx.setLineDash([]);
+            }
+        });
+        
+        // 5. ダウンロード用のリンクを作成して実行
+        const date = new Date().toISOString().substring(0, 10);
+        const filename = `endfield_plan_${date}.png`;
+        
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = expCanvas.toDataURL('image/png');
+        link.click();
+        
+        alert(`設計図を画像(${expCanvas.width}x${expCanvas.height})として保存しました。\nSNS等へはこのファイルをアップロードしてください。`);
+    }
+
+    // --- セーブ・ロード ---
     function autoLoad() {
         const saved = localStorage.getItem('endfield_save');
         if (saved) {
@@ -133,6 +200,7 @@
         }
     }
 
+    // --- メインシステム ---
     async function loadConfig() {
         try {
             const response = await fetch('data.json?t=' + new Date().getTime());
@@ -173,6 +241,8 @@
     function draw() {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 画面上の表示領域を計算
         ctx.translate(offsetX, offsetY);
         ctx.scale(scale, scale);
 
@@ -180,11 +250,13 @@
         ctx.strokeStyle = '#222';
         ctx.lineWidth = 1 / scale;
 
+        // グリッド
         for(let i=0; i<=mapSize; i++) {
             ctx.beginPath(); ctx.moveTo(i * baseGridSize, 0); ctx.lineTo(i * baseGridSize, fullSize); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, i * baseGridSize); ctx.lineTo(fullSize, i * baseGridSize); ctx.stroke();
         }
 
+        // 設備
         placedItems.forEach(item => {
             ctx.fillStyle = item.color;
             ctx.globalAlpha = item === draggingItem ? 0.3 : 0.8;
@@ -197,6 +269,7 @@
             }
         });
 
+        // 設置プレビュー
         if(currentTool && currentTool.id !== 'eraser' && !draggingItem) {
             ctx.globalAlpha = 0.4;
             const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, currentTool.w, currentTool.h);
@@ -204,6 +277,7 @@
             ctx.fillRect(mouseGrid.x*baseGridSize, mouseGrid.y*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
         }
         
+        // 移動プレビュー
         if(draggingItem) {
             ctx.globalAlpha = 0.6;
             const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, draggingItem.w, draggingItem.h, draggingItem);
@@ -222,6 +296,7 @@
         });
     }
 
+    // --- イベントリスナー ---
     mainArea.addEventListener('mousedown', (e) => {
         if (e.button === 1) {
             isDraggingMap = true;
@@ -229,28 +304,17 @@
             mainArea.classList.add('dragging-map');
             return;
         }
-
         if (e.button === 0) {
             const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
-            
             if (currentTool && currentTool.id === 'eraser') {
-                if (target) {
-                    placedItems = placedItems.filter(i => i !== target);
-                    autoSave();
-                }
+                if (target) { placedItems = placedItems.filter(i => i !== target); autoSave(); }
             } else if (target) {
-                draggingItem = target;
-                dragStartPos = { x: target.x, y: target.y };
-                mainArea.classList.add('dragging-item');
+                draggingItem = target; dragStartPos = { x: target.x, y: target.y }; mainArea.classList.add('dragging-item');
             } else if (currentTool) {
                 const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, currentTool.w, currentTool.h);
-                if (!occupied) {
-                    placedItems.push({ ...currentTool, x: mouseGrid.x, y: mouseGrid.y });
-                    autoSave();
-                }
+                if (!occupied) { placedItems.push({ ...currentTool, x: mouseGrid.x, y: mouseGrid.y }); autoSave(); }
             }
         }
-
         if (e.button === 2) {
             placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h));
             autoSave();
@@ -261,13 +325,11 @@
         const rect = mainArea.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
-
         if (isDraggingMap) {
             offsetX += e.clientX - lastMousePos.x;
             offsetY += e.clientY - lastMousePos.y;
             lastMousePos = { x: e.clientX, y: e.clientY };
         }
-
         const worldX = (mx - offsetX) / scale;
         const worldY = (my - offsetY) / scale;
         mouseGrid.x = Math.floor(worldX / baseGridSize);
@@ -278,22 +340,14 @@
     window.addEventListener('mouseup', () => {
         if (draggingItem) {
             const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, draggingItem.w, draggingItem.h, draggingItem);
-            if (!occupied) {
-                draggingItem.x = mouseGrid.x;
-                draggingItem.y = mouseGrid.y;
-            } else {
-                draggingItem.x = dragStartPos.x;
-                draggingItem.y = dragStartPos.y;
-            }
-            draggingItem = null;
-            autoSave();
+            if (!occupied) { draggingItem.x = mouseGrid.x; draggingItem.y = mouseGrid.y;
+            } else { draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; }
+            draggingItem = null; autoSave();
         }
-        isDraggingMap = false;
-        mainArea.classList.remove('dragging-map', 'dragging-item');
+        isDraggingMap = false; mainArea.classList.remove('dragging-map', 'dragging-item');
     });
 
     mainArea.addEventListener('contextmenu', e => e.preventDefault());
-
     mainArea.addEventListener('wheel', (e) => {
         e.preventDefault();
         const zoomSpeed = 0.12;
@@ -301,28 +355,17 @@
         const newScale = Math.min(Math.max(0.3, scale + delta), 1.5);
         if (newScale !== scale) {
             const rect = mainArea.getBoundingClientRect();
-            const mx = e.clientX - rect.left;
-            const my = e.clientY - rect.top;
+            const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
             offsetX -= (mx - offsetX) * (newScale / scale - 1);
             offsetY -= (my - offsetY) * (newScale / scale - 1);
-            scale = newScale;
-            updateStatus();
+            scale = newScale; updateStatus();
         }
     }, { passive: false });
 
-    function updateStatus() {
-        document.getElementById('status').innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`;
-    }
-
-    function clearCanvas() { 
-        if(confirm('全て消去しますか？')) {
-            placedItems = [];
-            autoSave();
-        }
-    }
+    function updateStatus() { document.getElementById('status').innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; }
+    function clearCanvas() { if(confirm('全て消去しますか？')) { placedItems = []; autoSave(); } }
     
-    loadConfig();
-    draw();
+    loadConfig(); draw();
 </script>
 </body>
 </html>
