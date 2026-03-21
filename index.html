@@ -1,586 +1,586 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="robots" content="noindex,nofollow">
-    <title>Endfield Industrial Planner</title>
-    <style>
-        :root { 
-            --accent: #ffcf00; --danger: #ff4444; --warning: #ffae00; --success: #2ecc71;
-            --bg: #121416; --panel: #1c1f23; --text: #ffffff; --grid: #2a2d30; 
-            --btn-idle: rgba(255, 255, 255, 0.05);
-            --btn-border: rgba(128, 128, 128, 0.3);
-            --sidebar-w: 280px;
-            --tooltip-bg: rgba(0, 0, 0, 0.9);
-        }
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Endfield Industrial Planner</title>
+    <style>
+        :root { 
+            --accent: #ffcf00; --danger: #ff4444; --warning: #ffae00; --success: #2ecc71;
+            --bg: #121416; --panel: #1c1f23; --text: #ffffff; --grid: #2a2d30; 
+            --btn-idle: rgba(255, 255, 255, 0.05);
+            --btn-border: rgba(128, 128, 128, 0.3);
+            --sidebar-w: 280px;
+            --tooltip-bg: rgba(0, 0, 0, 0.9);
+        }
 
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
-        
-        #sidebar { 
-            width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--panel); border-right: 2px solid rgba(128,128,128,0.2); padding: 20px; 
-            display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 100;
-            transition: margin-left 0.3s ease, opacity 0.3s ease;
-            -ms-overflow-style: none; scrollbar-width: none; box-sizing: border-box;
-        }
-        #sidebar::-webkit-scrollbar { display: none; }
-        body.sidebar-closed #sidebar { margin-left: calc(var(--sidebar-w) * -1); opacity: 0; pointer-events: none; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        
+        #sidebar { 
+            width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--panel); border-right: 2px solid rgba(128,128,128,0.2); padding: 20px; 
+            display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 100;
+            transition: margin-left 0.3s ease, opacity 0.3s ease;
+            -ms-overflow-style: none; scrollbar-width: none; box-sizing: border-box;
+        }
+        #sidebar::-webkit-scrollbar { display: none; }
+        body.sidebar-closed #sidebar { margin-left: calc(var(--sidebar-w) * -1); opacity: 0; pointer-events: none; }
 
-        #toggle-sidebar {
-            position: fixed; left: var(--sidebar-w); top: 10px; z-index: 110;
-            background: var(--panel); border: 1px solid rgba(128,128,128,0.3); color: var(--accent);
-            padding: 8px 12px; cursor: pointer; border-radius: 0 4px 4px 0;
-            transition: left 0.3s ease; font-weight: bold;
-        }
-        body.sidebar-closed #toggle-sidebar { left: 0; }
+        #toggle-sidebar {
+            position: fixed; left: var(--sidebar-w); top: 10px; z-index: 110;
+            background: var(--panel); border: 1px solid rgba(128,128,128,0.3); color: var(--accent);
+            padding: 8px 12px; cursor: pointer; border-radius: 0 4px 4px 0;
+            transition: left 0.3s ease; font-weight: bold;
+        }
+        body.sidebar-closed #toggle-sidebar { left: 0; }
 
-        .tool-group { border: 1px solid var(--btn-border); padding: 10px; border-radius: 4px; margin-bottom: 5px; text-align: left; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0; }
+        .tool-group { border: 1px solid var(--btn-border); padding: 10px; border-radius: 4px; margin-bottom: 5px; text-align: left; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0; }
 
-        label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
-        h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); }
-        
-        #summary-panel { font-size: 0.85em; line-height: 1.6; border-bottom: 1px solid var(--btn-border); padding-bottom: 8px; margin-bottom: 12px; }
-        .summary-item { display: flex; justify-content: space-between; }
-        .val-stat { color: var(--accent); font-weight: bold; }
+        label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+        h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); }
+        
+        #summary-panel { font-size: 0.85em; line-height: 1.6; border-bottom: 1px solid var(--btn-border); padding-bottom: 8px; margin-bottom: 12px; }
+        .summary-item { display: flex; justify-content: space-between; }
+        .val-stat { color: var(--accent); font-weight: bold; }
 
-        .cat-container { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
-        .cat-btn { font-size: 0.7em; padding: 4px 8px; background: var(--btn-idle); border: 1px solid var(--btn-border); color: var(--text); border-radius: 3px; cursor: pointer; }
-        .cat-btn.active { background: var(--accent); color: #000; font-weight: bold; }
+        .cat-container { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+        .cat-btn { font-size: 0.7em; padding: 4px 8px; background: var(--btn-idle); border: 1px solid var(--btn-border); color: var(--text); border-radius: 3px; cursor: pointer; }
+        .cat-btn.active { background: var(--accent); color: #000; font-weight: bold; }
 
-        .tool-btn { 
-            width: 100%; padding: 8px 10px; margin: 2px 0; 
-            background: var(--btn-idle); border: 1px solid var(--btn-border); 
-            color: var(--text); cursor: pointer; text-align: left;
-            transition: 0.2s; border-radius: 4px; 
-            font-size: 0.8em; display: flex; align-items: center; justify-content: space-between;
-            opacity: 0.8; box-sizing: border-box; white-space: nowrap; position: relative;
-        }
-        .tool-btn:hover { background: rgba(255, 207, 0, 0.15); border-color: var(--accent); opacity: 1; }
-        .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); opacity: 1; box-shadow: 0 0 10px rgba(255, 207, 0, 0.3); }
-        
-        .count-badge { font-size: 0.9em; opacity: 0.6; margin-left: auto; padding-right: 4px; }
-        .tool-btn.active .count-badge { color: #000; opacity: 1; }
+        .tool-btn { 
+            width: 100%; padding: 8px 10px; margin: 2px 0; 
+            background: var(--btn-idle); border: 1px solid var(--btn-border); 
+            color: var(--text); cursor: pointer; text-align: left;
+            transition: 0.2s; border-radius: 4px; 
+            font-size: 0.8em; display: flex; align-items: center; justify-content: space-between;
+            opacity: 0.8; box-sizing: border-box; white-space: nowrap; position: relative;
+        }
+        .tool-btn:hover { background: rgba(255, 207, 0, 0.15); border-color: var(--accent); opacity: 1; }
+        .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); opacity: 1; box-shadow: 0 0 10px rgba(255, 207, 0, 0.3); }
+        
+        .count-badge { font-size: 0.9em; opacity: 0.6; margin-left: auto; padding-right: 4px; }
+        .tool-btn.active .count-badge { color: #000; opacity: 1; }
 
-        .tool-btn[data-size]::after {
-            content: attr(data-size); font-size: 9px; background: var(--tooltip-bg); color: #fff; padding: 2px 5px;
-            border-radius: 3px; border: 1px solid var(--accent); opacity: 0; transition: 0.2s;
-            pointer-events: none; position: absolute; right: 5px; font-weight: normal;
-        }
-        .tool-btn[data-size]:hover::after { opacity: 1; }
-        .tool-btn[data-size]:hover .count-badge { visibility: hidden; }
+        .tool-btn[data-size]::after {
+            content: attr(data-size); font-size: 9px; background: var(--tooltip-bg); color: #fff; padding: 2px 5px;
+            border-radius: 3px; border: 1px solid var(--accent); opacity: 0; transition: 0.2s;
+            pointer-events: none; position: absolute; right: 5px; font-weight: normal;
+        }
+        .tool-btn[data-size]:hover::after { opacity: 1; }
+        .tool-btn[data-size]:hover .count-badge { visibility: hidden; }
 
-        .action-btn { font-weight: bold; justify-content: center; text-align: center; }
-        .full-width { grid-column: span 2; } 
-        .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
-        .save-btn:hover { opacity: 1; }
+        .action-btn { font-weight: bold; justify-content: center; text-align: center; }
+        .full-width { grid-column: span 2; } 
+        .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
+        .save-btn:hover { opacity: 1; }
 
-        select { width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; outline: none; cursor: pointer; font-size: 0.9em; }
+        select { width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--btn-border); border-radius: 4px; outline: none; cursor: pointer; font-size: 0.9em; }
 
-        #main { flex: 1; position: relative; overflow: hidden; background: var(--bg); cursor: crosshair; }
-        #main.dragging-map { cursor: grabbing; }
-        #main.dragging-item { cursor: move; }
-        canvas { display: block; }
-        
-        .status-bar { 
-            position: fixed; bottom: 15px; left: calc(var(--sidebar-w) + 20px);
-            background: rgba(0,0,0,0.8); padding: 6px 14px; font-size: 12px; border-radius: 4px; 
-            z-index: 90; pointer-events: none; transition: left 0.3s ease; 
-            border: 1px solid var(--accent); color: var(--accent);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5); white-space: nowrap;
-        }
-        body.sidebar-closed .status-bar { left: 20px; }
+        #main { flex: 1; position: relative; overflow: hidden; background: var(--bg); cursor: crosshair; }
+        #main.dragging-map { cursor: grabbing; }
+        #main.dragging-item { cursor: move; }
+        canvas { display: block; }
+        
+        .status-bar { 
+            position: fixed; bottom: 15px; left: calc(var(--sidebar-w) + 20px);
+            background: rgba(0,0,0,0.8); padding: 6px 14px; font-size: 12px; border-radius: 4px; 
+            z-index: 90; pointer-events: none; transition: left 0.3s ease; 
+            border: 1px solid var(--accent); color: var(--accent);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5); white-space: nowrap;
+        }
+        body.sidebar-closed .status-bar { left: 20px; }
 
-        .controls-hint { font-size: 0.7em; color: #888; line-height: 1.6; background: rgba(128,128,128,0.1); padding: 10px; border-radius: 4px; border-left: 3px solid var(--accent); }
-        textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
-        .warning-text { font-size: 0.65em; color: var(--warning); margin-top: 8px; line-height: 1.4; border-top: 1px dashed rgba(128,128,128,0.3); padding-top: 8px; }
+        .controls-hint { font-size: 0.7em; color: #888; line-height: 1.6; background: rgba(128,128,128,0.1); padding: 10px; border-radius: 4px; border-left: 3px solid var(--accent); }
+        textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
+        .warning-text { font-size: 0.65em; color: var(--warning); margin-top: 8px; line-height: 1.4; border-top: 1px dashed rgba(128,128,128,0.3); padding-top: 8px; }
 
-        #modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1000;
-        }
-        #modal-box {
-            background: var(--panel); border: 2px solid var(--accent); padding: 25px; border-radius: 8px;
-            max-width: 400px; width: 90%; text-align: center; box-shadow: 0 0 20px rgba(255, 207, 0, 0.2);
-        }
-        #modal-text { margin-bottom: 20px; font-size: 0.95em; line-height: 1.5; }
-        .modal-btns { display: flex; gap: 10px; justify-content: center; }
-        .modal-btn { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; min-width: 80px; }
-        .modal-confirm { background: var(--accent); color: #000; }
-        .modal-cancel { background: var(--btn-idle); color: var(--text); border: 1px solid var(--btn-border); }
-    </style>
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        #modal-box {
+            background: var(--panel); border: 2px solid var(--accent); padding: 25px; border-radius: 8px;
+            max-width: 400px; width: 90%; text-align: center; box-shadow: 0 0 20px rgba(255, 207, 0, 0.2);
+        }
+        #modal-text { margin-bottom: 20px; font-size: 0.95em; line-height: 1.5; }
+        .modal-btns { display: flex; gap: 10px; justify-content: center; }
+        .modal-btn { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; min-width: 80px; }
+        .modal-confirm { background: var(--accent); color: #000; }
+       .modal-cancel { background: var(--btn-idle); color: var(--text); border: 1px solid var(--btn-border); }
+    </style>
 </head>
 <body>
 
 <button id="toggle-sidebar" onclick="toggleSidebar()">◀</button>
 
 <div id="sidebar">
-    <h2>工業図面作成</h2>
+    <h2>工業図面作成</h2>
 
-    <div class="tool-group" id="dynamic-tools">
-        <label>設備一覧</label>
-        <div id="summary-panel">
-            <div class="summary-item"><span>消費電力:</span> <span id="sum-power" class="val-stat">0</span></div>
-        </div>
-        <div class="cat-container" id="category-filters">
-            <button id="cat-all" class="cat-btn active" onclick="filterCategory('all')">すべて</button>
-        </div>
-        <div id="buildings-container">読み込み中...</div>
-    </div>
+    <div class="tool-group" id="dynamic-tools">
+        <label>設備一覧</label>
+        <div id="summary-panel">
+            <div class="summary-item"><span>消費電力:</span> <span id="sum-power" class="val-stat">0</span></div>
+        </div>
+        <div class="cat-container" id="category-filters">
+            <button id="cat-all" class="cat-btn active" onclick="filterCategory('all')">すべて</button>
+        </div>
+        <div id="buildings-container">読み込み中...</div>
+    </div>
 
-    <div class="tool-group">
-        <label>マップ設定</label>
-        <select id="map-ratio" onchange="changeMapRatio(this.value)">
-            <option value="40:40">40 × 40</option>
-            <option value="50:50">50 × 50</option>
-            <option value="70:70">70 × 70</option>
-            <option value="80:80">80 × 80</option>
-        </select>
-    </div>
+    <div class="tool-group">
+        <label>マップ設定</label>
+        <select id="map-ratio" onchange="changeMapRatio(this.value)">
+            <option value="40:40">40 × 40</option>
+            <option value="50:50">50 × 50</option>
+            <option value="70:70">70 × 70</option>
+            <option value="80:80">80 × 80</option>
+        </select>
+    </div>
 
-    <div class="tool-group">
-        <label>基本操作</label>
-        <div class="grid-2">
-            <button class="tool-btn action-btn active" onclick="setMoveMode()" id="btn-move">移動モード</button>
-            <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser">削除モード</button>
-            <button class="tool-btn action-btn full-width" onclick="confirmClear()" style="color:var(--danger)">すべて削除</button>
-        </div>
-    </div>
+    <div class="tool-group">
+        <label>基本操作</label>
+        <div class="grid-2">
+            <button class="tool-btn action-btn active" onclick="setMoveMode()" id="btn-move">移動モード</button>
+            <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser">削除モード</button>
+            <button class="tool-btn action-btn full-width" onclick="confirmClear()" style="color:var(--danger)">すべて削除</button>
+        </div>
+    </div>
 
-    <div class="tool-group" id="save-area">
-        <label>設計図コード</label>
-        <div class="grid-2">
-            <button class="tool-btn action-btn" onclick="exportData()">書き出し</button>
-            <button class="tool-btn action-btn" onclick="confirmImport()">読み込み</button>
-            <textarea id="data-text" placeholder="ここにコードを入力/出力" style="grid-column: span 2;"></textarea>
-            <button class="tool-btn action-btn save-btn" onclick="downloadImage()">画像を保存 (PNG)</button>
-        </div>
-        <div class="warning-text">※履歴削除等でデータが消えるため、コードの書き出し保存を推奨します。</div>
-    </div>
-    
-    <div class="controls-hint">
-        <strong>【画面移動】</strong>ホイール押し込み<br>
-        <strong>【設置/移動】</strong>左クリック/ドラッグ<br>
-        <strong>【削除】</strong>右クリック<br>
-        <strong>【単体回転】</strong>移動/設置中に <strong>R</strong> キー<br>
-        <strong>【全体回転】</strong><strong>Ctrl + R</strong> キー<br>
-        <strong>【ズーム】</strong>ホイール(10%~150%)
-    </div>
+    <div class="tool-group" id="save-area">
+        <label>設計図コード</label>
+        <div class="grid-2">
+            <button class="tool-btn action-btn" onclick="exportData()">書き出し</button>
+            <button class="tool-btn action-btn" onclick="confirmImport()">読み込み</button>
+            <textarea id="data-text" placeholder="ここにコードを入力/出力" style="grid-column: span 2;"></textarea>
+            <button class="tool-btn action-btn save-btn" onclick="downloadImage()">画像を保存 (PNG)</button>
+        </div>
+        <div class="warning-text">※履歴削除等でデータが消えるため、コードの書き出し保存を推奨します。</div>
+    </div>
+    
+    <div class="controls-hint">
+        <strong>【画面移動】</strong>ホイール押し込み<br>
+        <strong>【設置/移動】</strong>左クリック/ドラッグ<br>
+      <strong>【削除】</strong>右クリック<br>
+        <strong>【単体回転】</strong>移動/設置中に <strong>R</strong> キー<br>
+        <strong>【全体回転】</strong><strong>Ctrl + R</strong> キー<br>
+        <strong>【ズーム】</strong>ホイール(30%~150%)
+    </div>
 </div>
 
 <div id="main">
-    <canvas id="gridCanvas"></canvas>
-    <div class="status-bar" id="status">座標: 0, 0 | ズーム: 25%</div>
+    <canvas id="gridCanvas"></canvas>
+    <div class="status-bar" id="status">座標: 0, 0 | ズーム: 25%</div>
 </div>
 
 <div id="modal-overlay">
-    <div id="modal-box">
-        <div id="modal-text"></div>
-        <div class="modal-btns">
-            <button id="modal-cancel-btn" class="modal-btn modal-cancel">キャンセル</button>
-            <button id="modal-ok-btn" class="modal-btn modal-confirm">OK</button>
-        </div>
-    </div>
+    <div id="modal-box">
+        <div id="modal-text"></div>
+        <div class="modal-btns">
+            <button id="modal-cancel-btn" class="modal-btn modal-cancel">キャンセル</button>
+            <button id="modal-ok-btn" class="modal-btn modal-confirm">OK</button>
+        </div>
+    </div>
 </div>
 
 <canvas id="exportCanvas" style="display:none;"></canvas>
 
 <script>
-    const canvas = document.getElementById('gridCanvas');
-    const ctx = canvas.getContext('2d');
-    const mainArea = document.getElementById('main');
-    const baseGridSize = 30;
-    
-    let mapW = 40;
-    let mapH = 40;
-    let scale = 0.25; 
-    let offsetX = 0;
-    let offsetY = 0;
-    let isDraggingMap = false;
-    let draggingItem = null;
-    let dragStartPos = { x: 0, y: 0 };
-    let lastMousePos = { x: 0, y: 0 };
-    let placedItems = [];
-    let currentTool = null;
-    let mouseGrid = { x: 0, y: 0 };
-    let allBuildings = [];
-    let currentCategory = 'all';
+    const canvas = document.getElementById('gridCanvas');
+    const ctx = canvas.getContext('2d');
+    const mainArea = document.getElementById('main');
+    const baseGridSize = 30;
+    
+    let mapW = 40;
+    let mapH = 40;
+    let scale = 0.25; 
+    let offsetX = 0;
+    let offsetY = 0;
+    let isDraggingMap = false;
+    let draggingItem = null;
+    let dragStartPos = { x: 0, y: 0 };
+    let lastMousePos = { x: 0, y: 0 };
+    let placedItems = [];
+    let currentTool = null;
+    let mouseGrid = { x: 0, y: 0 };
+    let allBuildings = [];
+    let currentCategory = 'all';
 
-    function showModal(text, isConfirm, onOk) {
-        const overlay = document.getElementById('modal-overlay');
-        const textEl = document.getElementById('modal-text');
-        const okBtn = document.getElementById('modal-ok-btn');
-        const cancelBtn = document.getElementById('modal-cancel-btn');
-        textEl.innerText = text;
-        overlay.style.display = 'flex';
-        cancelBtn.style.display = isConfirm ? 'inline-block' : 'none';
-        okBtn.onclick = () => { overlay.style.display = 'none'; if(onOk) onOk(); };
-        cancelBtn.onclick = () => { overlay.style.display = 'none'; };
-    }
+    function showModal(text, isConfirm, onOk) {
+        const overlay = document.getElementById('modal-overlay');
+        const textEl = document.getElementById('modal-text');
+        const okBtn = document.getElementById('modal-ok-btn');
+        const cancelBtn = document.getElementById('modal-cancel-btn');
+        textEl.innerText = text;
+        overlay.style.display = 'flex';
+        cancelBtn.style.display = isConfirm ? 'inline-block' : 'none';
+        okBtn.onclick = () => { overlay.style.display = 'none'; if(onOk) onOk(); };
+        cancelBtn.onclick = () => { overlay.style.display = 'none'; };
+    }
 
-    function confirmClear() {
-        showModal('配置したすべての設備を削除しますか？', true, () => {
-            placedItems = []; updateStats(); autoSave();
-        });
-    }
+    function confirmClear() {
+        showModal('配置したすべての設備を削除しますか？', true, () => {
+            placedItems = []; updateStats(); autoSave();
+        });
+    }
 
-    function confirmImport() {
-        const dataArea = document.getElementById('data-text');
-        if (!dataArea.value.trim()) return showModal('コードを入力してください', false);
-        showModal('設計図を読み込みますか？現在の配置は上書きされます。', true, () => {
-            try {
-                const decoded = JSON.parse(decodeURIComponent(escape(atob(dataArea.value))));
-                placedItems = decoded; updateStats(); autoSave();
-            } catch (e) { showModal('無効なコードです', false); }
-        });
-    }
+    function confirmImport() {
+        const dataArea = document.getElementById('data-text');
+        if (!dataArea.value.trim()) return showModal('コードを入力してください', false);
+        showModal('設計図を読み込みますか？現在の配置は上書きされます。', true, () => {
+            try {
+                const decoded = JSON.parse(decodeURIComponent(escape(atob(dataArea.value))));
+                placedItems = decoded; updateStats(); autoSave();
+            } catch (e) { showModal('無効なコードです', false); }
+        });
+    }
 
-    function changeMapRatio(val) {
-        const [w, h] = val.split(':').map(Number);
-        mapW = w; mapH = h;
-        canvas.width = mapW * baseGridSize;
-        canvas.height = mapH * baseGridSize;
-        centerMap();
-    }
+    function changeMapRatio(val) {
+        const [w, h] = val.split(':').map(Number);
+        mapW = w; mapH = h;
+        canvas.width = mapW * baseGridSize;
+        canvas.height = mapH * baseGridSize;
+        centerMap();
+    }
 
-    function centerMap() {
-        const rect = mainArea.getBoundingClientRect();
-        offsetX = (rect.width - mapW * baseGridSize * scale) / 2;
-        offsetY = (rect.height - mapH * baseGridSize * scale) / 2;
-        updateStatus();
-    }
+    function centerMap() {
+        const rect = mainArea.getBoundingClientRect();
+        offsetX = (rect.width - mapW * baseGridSize * scale) / 2;
+        offsetY = (rect.height - mapH * baseGridSize * scale) / 2;
+        updateStatus();
+    }
 
-    function toggleSidebar() {
-        document.body.classList.toggle('sidebar-closed');
-        const btn = document.getElementById('toggle-sidebar');
-        btn.innerText = document.body.classList.contains('sidebar-closed') ? '▶' : '◀';
-        setTimeout(centerMap, 310);
-    }
+    function toggleSidebar() {
+        document.body.classList.toggle('sidebar-closed');
+        const btn = document.getElementById('toggle-sidebar');
+        btn.innerText = document.body.classList.contains('sidebar-closed') ? '▶' : '◀';
+        setTimeout(centerMap, 310);
+    }
 
-    function updateStats() {
-        let power = 0;
-        const counts = {};
-        placedItems.forEach(item => {
-            if(item.power < 0) power += item.power;
-            counts[item.id] = (counts[item.id] || 0) + 1;
-        });
-        const pEl = document.getElementById('sum-power');
-        if(pEl) pEl.innerText = Math.abs(power);
-        if(allBuildings) {
-            allBuildings.forEach(b => {
-                const badge = document.getElementById(`count-${b.id}`);
-                if(badge) badge.innerText = counts[b.id] || 0;
-            });
-        }
-    }
+    function updateStats() {
+        let power = 0;
+        const counts = {};
+        placedItems.forEach(item => {
+            if(item.power < 0) power += item.power;
+            counts[item.id] = (counts[item.id] || 0) + 1;
+        });
+        const pEl = document.getElementById('sum-power');
+        if(pEl) pEl.innerText = Math.abs(power);
+        if(allBuildings) {
+            allBuildings.forEach(b => {
+                const badge = document.getElementById(`count-${b.id}`);
+                if(badge) badge.innerText = counts[b.id] || 0;
+            });
+        }
+    }
 
-    function filterCategory(cat) {
-        currentCategory = cat;
-        document.querySelectorAll('.cat-btn').forEach(btn => {
-            const btnLabel = (cat === 'all') ? 'すべて' : cat;
-            btn.classList.toggle('active', btn.innerText === btnLabel);
-        });
-        renderButtons();
-    }
+    function filterCategory(cat) {
+        currentCategory = cat;
+        document.querySelectorAll('.cat-btn').forEach(btn => {
+            const btnLabel = (cat === 'all') ? 'すべて' : cat;
+            btn.classList.toggle('active', btn.innerText === btnLabel);
+        });
+        renderButtons();
+    }
 
-    async function loadConfig() {
-        try {
-            const response = await fetch('data.json?t=' + new Date().getTime());
-            const data = await response.json();
-            allBuildings = data.buildings || [];
-            const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
-            const catContainer = document.getElementById('category-filters');
-            cats.forEach(c => {
-                const btn = document.createElement('button');
-                btn.className = 'cat-btn';
-                btn.innerText = c;
-                btn.onclick = () => filterCategory(c);
-                catContainer.appendChild(btn);
-            });
-            changeMapRatio("40:40"); renderButtons(); autoLoad(); updateStats();
-        } catch (err) { document.getElementById('buildings-container').innerHTML = "JSON読み込みエラー"; }
-    }
+    async function loadConfig() {
+        try {
+            const response = await fetch('data.json?t=' + new Date().getTime());
+            const data = await response.json();
+            allBuildings = data.buildings || [];
+            const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
+            const catContainer = document.getElementById('category-filters');
+            cats.forEach(c => {
+                const btn = document.createElement('button');
+                btn.className = 'cat-btn';
+                btn.innerText = c;
+                btn.onclick = () => filterCategory(c);
+                catContainer.appendChild(btn);
+            });
+            changeMapRatio("40:40"); renderButtons(); autoLoad(); updateStats();
+        } catch (err) { document.getElementById('buildings-container').innerHTML = "JSON読み込みエラー"; }
+    }
 
-    function renderButtons() {
-        const container = document.getElementById('buildings-container');
-        if(!container) return;
-        container.innerHTML = '';
-        const filtered = allBuildings.filter(b => currentCategory === 'all' || b.category === currentCategory);
-        filtered.forEach(b => {
-            const btn = document.createElement('button');
-            btn.className = 'tool-btn' + (currentTool && currentTool.id === b.id ? ' active' : '');
-            btn.id = 'btn-' + b.id;
-            btn.innerHTML = `<span>${b.name}</span><span class="count-badge" id="count-${b.id}">0</span>`; 
-            btn.setAttribute('data-size', `${b.w}×${b.h}`);
-            btn.onclick = () => setTool(b);
-            container.appendChild(btn);
-        });
-        updateStats();
-    }
+    function renderButtons() {
+        const container = document.getElementById('buildings-container');
+        if(!container) return;
+        container.innerHTML = '';
+        const filtered = allBuildings.filter(b => currentCategory === 'all' || b.category === currentCategory);
+        filtered.forEach(b => {
+            const btn = document.createElement('button');
+            btn.className = 'tool-btn' + (currentTool && currentTool.id === b.id ? ' active' : '');
+            btn.id = 'btn-' + b.id;
+            btn.innerHTML = `<span>${b.name}</span><span class="count-badge" id="count-${b.id}">0</span>`; 
+            btn.setAttribute('data-size', `${b.w}×${b.h}`);
+            btn.onclick = () => setTool(b);
+            container.appendChild(btn);
+        });
+        updateStats();
+    }
 
-    function setTool(config) {
-        currentTool = JSON.parse(JSON.stringify(config));
-        currentTool.angle = 0; 
-        renderButtons();
-        document.getElementById('btn-eraser').classList.remove('active');
-        document.getElementById('btn-move').classList.remove('active');
-    }
+    function setTool(config) {
+        currentTool = JSON.parse(JSON.stringify(config));
+        currentTool.angle = 0; 
+        renderButtons();
+        document.getElementById('btn-eraser').classList.remove('active');
+        document.getElementById('btn-move').classList.remove('active');
+    }
 
-    function setEraser() {
-        currentTool = { id: 'eraser' }; renderButtons();
-        document.getElementById('btn-eraser').classList.add('active');
-        document.getElementById('btn-move').classList.remove('active');
-    }
+    function setEraser() {
+        currentTool = { id: 'eraser' }; renderButtons();
+        document.getElementById('btn-eraser').classList.add('active');
+        document.getElementById('btn-move').classList.remove('active');
+    }
 
-    function setMoveMode() {
-        currentTool = null; renderButtons();
-        document.getElementById('btn-eraser').classList.remove('active');
-        document.getElementById('btn-move').classList.add('active');
-    }
+    function setMoveMode() {
+        currentTool = null; renderButtons();
+        document.getElementById('btn-eraser').classList.remove('active');
+        document.getElementById('btn-move').classList.add('active');
+    }
 
-    function rotateItem(item) {
-        if (!item) return;
-        const temp = item.w; item.w = item.h; item.h = temp;
-        item.angle = ((item.angle || 0) + 1) % 4;
-    }
+    function rotateItem(item) {
+        if (!item) return;
+        const temp = item.w; item.w = item.h; item.h = temp;
+        item.angle = ((item.angle || 0) + 1) % 4;
+    }
 
-    function rotateMap() {
-        placedItems.forEach(item => {
-            const oldX = item.x; const oldY = item.y; const oldW = item.w; const oldH = item.h;
-            item.x = mapH - oldY - oldH;
-            item.y = oldX;
-            item.w = oldH;
-            item.h = oldW;
-            item.angle = ((item.angle || 0) + 1) % 4;
-        });
-        if (mapW !== mapH) {
-            const selector = document.getElementById('map-ratio');
-            const reversedRatio = selector.value.split(':').reverse().join(':');
-            for (let i = 0; i < selector.options.length; i++) {
-                if (selector.options[i].value === reversedRatio) {
-                    selector.value = reversedRatio; changeMapRatio(reversedRatio); break;
-                }
-            }
-        }
-        updateStats(); autoSave();
-    }
+    function rotateMap() {
+        placedItems.forEach(item => {
+            const oldX = item.x; const oldY = item.y; const oldW = item.w; const oldH = item.h;
+            item.x = mapH - oldY - oldH;
+            item.y = oldX;
+            item.w = oldH;
+            item.h = oldW;
+            item.angle = ((item.angle || 0) + 1) % 4;
+        });
+        if (mapW !== mapH) {
+            const selector = document.getElementById('map-ratio');
+            const reversedRatio = selector.value.split(':').reverse().join(':');
+            for (let i = 0; i < selector.options.length; i++) {
+                if (selector.options[i].value === reversedRatio) {
+                    selector.value = reversedRatio; changeMapRatio(reversedRatio); break;
+                }
+            }
+        }
+        updateStats(); autoSave();
+    }
 
-    window.addEventListener('keydown', (e) => {
-        const key = e.key.toLowerCase();
-        if (e.ctrlKey && key === 'r') { e.preventDefault(); if (!draggingItem) rotateMap(); return; }
-        if (key === 'r') {
-            if (draggingItem) rotateItem(draggingItem);
-            else if (currentTool && currentTool.id !== 'eraser') rotateItem(currentTool);
-        }
-    });
+    window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if (e.ctrlKey && key === 'r') { e.preventDefault(); if (!draggingItem) rotateMap(); return; }
+        if (key === 'r') {
+            if (draggingItem) rotateItem(draggingItem);
+            else if (currentTool && currentTool.id !== 'eraser') rotateItem(currentTool);
+        }
+    });
 
-    // --- 修正：ラベルのリサイズ機能と強調版方位▲の描画 ---
-    function drawLabel(context, text, x, y, itemW, itemH, angle = 0) {
-        const pxW = itemW * baseGridSize;
-        const pxH = itemH * baseGridSize;
-        const padding = 2;
-        
-        // 1. 方位マーカー（▲）の描画 - 強調版
-        context.save();
-        context.translate(x, y);
-        context.rotate(angle * Math.PI / 2);
-        
-        // アウトライン（黒縁）
-        context.strokeStyle = "rgba(0, 0, 0, 0.8)";
-        context.lineWidth = 2;
-        context.lineJoin = "round";
-        const triSize = Math.min(7, pxW/3.5);
-        const topY = -pxH/2 + 2;
-        
-        const drawTri = () => {
-            context.beginPath();
-            context.moveTo(0, topY);
-            context.lineTo(-triSize, topY + triSize * 1.2);
-            context.lineTo(triSize, topY + triSize * 1.2);
-            context.closePath();
-        };
+    // --- 修正：ラベルのリサイズ機能と強調版方位▲の描画 ---
+    function drawLabel(context, text, x, y, itemW, itemH, angle = 0) {
+        const pxW = itemW * baseGridSize;
+        const pxH = itemH * baseGridSize;
+        const padding = 2;
+        
+        // 1. 方位マーカー（▲）の描画 - 強調版
+        context.save();
+        context.translate(x, y);
+        context.rotate(angle * Math.PI / 2);
+        
+        // アウトライン（黒縁）
+        context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+        context.lineWidth = 2;
+        context.lineJoin = "round";
+        const triSize = Math.min(7, pxW/3.5);
+        const topY = -pxH/2 + 2;
+        
+        const drawTri = () => {
+            context.beginPath();
+            context.moveTo(0, topY);
+            context.lineTo(-triSize, topY + triSize * 1.2);
+            context.lineTo(triSize, topY + triSize * 1.2);
+            context.closePath();
+        };
 
-        drawTri();
-        context.stroke(); // 縁取り
-        context.fillStyle = "#ffcf00"; // 鮮やかな黄色
-        context.fill(); // 中身
-        context.restore();
+        drawTri();
+        context.stroke(); // 縁取り
+        context.fillStyle = "#ffcf00"; // 鮮やかな黄色
+        context.fill(); // 中身
+        context.restore();
 
-        // 2. テキスト処理
-        let fontSize = (itemW === 1 || itemH === 1) ? 11 : 13;
-        context.font = `bold ${fontSize}px sans-serif`;
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        
-        const maxAvailableW = pxW - 4;
-        let displayName = text;
+        // 2. テキスト処理
+        let fontSize = (itemW === 1 || itemH === 1) ? 11 : 13;
+        context.font = `bold ${fontSize}px sans-serif`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        
+        const maxAvailableW = pxW - 4;
+        let displayName = text;
 
-        if (context.measureText(displayName).width > maxAvailableW) {
-            let shortName = text[0] + "...";
-            if (context.measureText(shortName).width <= maxAvailableW) {
-                displayName = shortName;
-                for (let i = 2; i < text.length; i++) {
-                    let testName = text.substring(0, i) + "...";
-                    if (context.measureText(testName).width <= maxAvailableW) displayName = testName;
-                    else break;
-                }
-            } else displayName = text[0];
-        }
-        
-        context.fillStyle = "rgba(0, 0, 0, 0.85)";
-        context.fillText(displayName, x + 0.5, y + 0.5);
-        context.fillStyle = "#fff";
-        context.fillText(displayName, x, y);
-    }
+        if (context.measureText(displayName).width > maxAvailableW) {
+            let shortName = text[0] + "...";
+            if (context.measureText(shortName).width <= maxAvailableW) {
+                displayName = shortName;
+                for (let i = 2; i < text.length; i++) {
+                    let testName = text.substring(0, i) + "...";
+                    if (context.measureText(testName).width <= maxAvailableW) displayName = testName;
+                    else break;
+                }
+            } else displayName = text[0];
+        }
+        
+        context.fillStyle = "rgba(0, 0, 0, 0.85)";
+        context.fillText(displayName, x + 0.5, y + 0.5);
+        context.fillStyle = "#fff";
+        context.fillText(displayName, x, y);
+    }
 
-    function draw() {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.translate(offsetX, offsetY);
-        ctx.scale(scale, scale);
-        ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
-        ctx.lineWidth = 1/scale;
-        
-        for(let i=0; i<=mapW; i++) { ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke(); }
-        for(let j=0; j<=mapH; j++) { ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke(); }
+    function draw() {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+        ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
+        ctx.lineWidth = 1/scale;
+        
+        for(let i=0; i<=mapW; i++) { ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke(); }
+        for(let j=0; j<=mapH; j++) { ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke(); }
 
-        const activePreview = draggingItem || (currentTool && currentTool.id !== 'eraser' ? currentTool : null);
-        const px = activePreview ? Math.min(mapW - activePreview.w, mouseGrid.x) : -100;
-        const py = activePreview ? Math.min(mapH - activePreview.h, mouseGrid.y) : -100;
+        const activePreview = draggingItem || (currentTool && currentTool.id !== 'eraser' ? currentTool : null);
+        const px = activePreview ? Math.min(mapW - activePreview.w, mouseGrid.x) : -100;
+        const py = activePreview ? Math.min(mapH - activePreview.h, mouseGrid.y) : -100;
 
-        placedItems.forEach(item => {
-            ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.15 : 0.8;
-            ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
-            if (item !== draggingItem) {
-                ctx.globalAlpha = 1.0;
-                drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
-            }
-            if(item.range > 0 && item !== draggingItem) {
-                let show = false;
-                if(activePreview) {
-                    const cx = item.x + 0.5; const cy = item.y + 0.5;
-                    if (px < cx + item.range && px + activePreview.w > cx - item.range && py < cy + item.range && py + activePreview.h > cy - item.range) show = true;
-                }
-                if(show) {
-                    ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
-                    ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
-                    ctx.setLineDash([]);
-                }
-            }
-        });
+        placedItems.forEach(item => {
+            ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.15 : 0.8;
+            ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
+            if (item !== draggingItem) {
+                ctx.globalAlpha = 1.0;
+                drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
+            }
+            if(item.range > 0 && item !== draggingItem) {
+                let show = false;
+                if(activePreview) {
+                    const cx = item.x + 0.5; const cy = item.y + 0.5;
+                    if (px < cx + item.range && px + activePreview.w > cx - item.range && py < cy + item.range && py + activePreview.h > cy - item.range) show = true;
+                }
+                if(show) {
+                    ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
+                    ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
+                    ctx.setLineDash([]);
+                }
+            }
+        });
 
-        if(activePreview) {
-            ctx.globalAlpha = 0.5;
-            const occupied = isAreaOccupied(px, py, activePreview.w, activePreview.h, draggingItem);
-            ctx.fillStyle = occupied ? 'red' : activePreview.color;
-            ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
-            ctx.globalAlpha = 1.0;
-            drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w, activePreview.h, activePreview.angle || 0);
-            if(activePreview.range > 0) {
-                ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
-                ctx.strokeRect((px-activePreview.range+0.5)*baseGridSize, (py-activePreview.range+0.5)*baseGridSize, (activePreview.range*2)*baseGridSize, (activePreview.range*2)*baseGridSize);
-                ctx.setLineDash([]);
-            }
-        }
-        requestAnimationFrame(draw);
-    }
+        if(activePreview) {
+            ctx.globalAlpha = 0.5;
+            const occupied = isAreaOccupied(px, py, activePreview.w, activePreview.h, draggingItem);
+            ctx.fillStyle = occupied ? 'red' : activePreview.color;
+            ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
+            ctx.globalAlpha = 1.0;
+            drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w, activePreview.h, activePreview.angle || 0);
+            if(activePreview.range > 0) {
+                ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
+                ctx.strokeRect((px-activePreview.range+0.5)*baseGridSize, (py-activePreview.range+0.5)*baseGridSize, (activePreview.range*2)*baseGridSize, (activePreview.range*2)*baseGridSize);
+                ctx.setLineDash([]);
+            }
+        }
+        requestAnimationFrame(draw);
+    }
 
-    function isAreaOccupied(x, y, w, h, ignoreItem = null) {
-        return placedItems.some(item => (item !== ignoreItem) && (x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y));
-    }
+    function isAreaOccupied(x, y, w, h, ignoreItem = null) {
+        return placedItems.some(item => (item !== ignoreItem) && (x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y));
+    }
 
-    mainArea.addEventListener('mousedown', (e) => {
-        if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
-        if (e.button === 0) {
-            const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
-            if (currentTool && currentTool.id === 'eraser') {
-                if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
-            } else if (target) {
-                draggingItem = target; dragStartPos = { x: target.x, y: target.y }; mainArea.classList.add('dragging-item');
-            } else if (currentTool && currentTool.id !== 'eraser') {
-                const px = Math.min(mapW - currentTool.w, mouseGrid.x);
-                const py = Math.min(mapH - currentTool.h, mouseGrid.y);
-                if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { 
-                    const newItem = JSON.parse(JSON.stringify(currentTool));
-                    newItem.x = px; newItem.y = py;
-                    placedItems.push(newItem); updateStats(); autoSave(); 
-                }
-            }
-        }
-        if (e.button === 2) { 
-            placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h)); 
-            updateStats(); autoSave(); 
-        }
-    });
+    mainArea.addEventListener('mousedown', (e) => {
+        if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
+        if (e.button === 0) {
+            const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
+            if (currentTool && currentTool.id === 'eraser') {
+                if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
+            } else if (target) {
+                draggingItem = target; dragStartPos = { x: target.x, y: target.y }; mainArea.classList.add('dragging-item');
+            } else if (currentTool && currentTool.id !== 'eraser') {
+                const px = Math.min(mapW - currentTool.w, mouseGrid.x);
+                const py = Math.min(mapH - currentTool.h, mouseGrid.y);
+                if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { 
+                    const newItem = JSON.parse(JSON.stringify(currentTool));
+                    newItem.x = px; newItem.y = py;
+                    placedItems.push(newItem); updateStats(); autoSave(); 
+                }
+            }
+        }
+        if (e.button === 2) { 
+            placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h)); 
+            updateStats(); autoSave(); 
+        }
+    });
 
-    window.addEventListener('mousemove', (e) => {
-        const rect = mainArea.getBoundingClientRect();
-        if (isDraggingMap) { offsetX += e.clientX - lastMousePos.x; offsetY += e.clientY - lastMousePos.y; lastMousePos = { x: e.clientX, y: e.clientY }; }
-        const worldX = (e.clientX - rect.left - offsetX) / scale; const worldY = (e.clientY - rect.top - offsetY) / scale;
-        mouseGrid.x = Math.max(0, Math.min(mapW, Math.floor(worldX / baseGridSize)));
-        mouseGrid.y = Math.max(0, Math.min(mapH, Math.floor(worldY / baseGridSize)));
-        updateStatus();
-    });
+    window.addEventListener('mousemove', (e) => {
+        const rect = mainArea.getBoundingClientRect();
+        if (isDraggingMap) { offsetX += e.clientX - lastMousePos.x; offsetY += e.clientY - lastMousePos.y; lastMousePos = { x: e.clientX, y: e.clientY }; }
+        const worldX = (e.clientX - rect.left - offsetX) / scale; const worldY = (e.clientY - rect.top - offsetY) / scale;
+        mouseGrid.x = Math.max(0, Math.min(mapW, Math.floor(worldX / baseGridSize)));
+        mouseGrid.y = Math.max(0, Math.min(mapH, Math.floor(worldY / baseGridSize)));
+        updateStatus();
+    });
 
-    window.addEventListener('mouseup', () => {
-        if (draggingItem) {
-            const px = Math.min(mapW - draggingItem.w, mouseGrid.x);
-            const py = Math.min(mapH - draggingItem.h, mouseGrid.y);
-            if (!isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem)) { draggingItem.x = px; draggingItem.y = py; }
-            else { draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; }
-            draggingItem = null; updateStats(); autoSave();
-        }
-        isDraggingMap = false; mainArea.classList.remove('dragging-map', 'dragging-item');
-    });
+    window.addEventListener('mouseup', () => {
+        if (draggingItem) {
+            const px = Math.min(mapW - draggingItem.w, mouseGrid.x);
+            const py = Math.min(mapH - draggingItem.h, mouseGrid.y);
+            if (!isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem)) { draggingItem.x = px; draggingItem.y = py; }
+            else { draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; }
+            draggingItem = null; updateStats(); autoSave();
+        }
+        isDraggingMap = false; mainArea.classList.remove('dragging-map', 'dragging-item');
+    });
 
-    mainArea.addEventListener('contextmenu', e => e.preventDefault());
-    mainArea.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.05 : 0.05;
-        const newScale = Math.min(Math.max(0.1, scale + delta), 1.5);
-        if (newScale !== scale) {
-            const rect = mainArea.getBoundingClientRect();
-            const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
-            offsetX -= (mx - offsetX) * (newScale / scale - 1);
-            offsetY -= (my - offsetY) * (newScale / scale - 1);
-            scale = newScale; updateStatus();
-        }
-    }, { passive: false });
+    mainArea.addEventListener('contextmenu', e => e.preventDefault());
+    mainArea.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.05 : 0.05;
+        const newScale = Math.min(Math.max(0.3, scale + delta), 1.5);
+        if (newScale !== scale) {
+            const rect = mainArea.getBoundingClientRect();
+            const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+            offsetX -= (mx - offsetX) * (newScale / scale - 1);
+            offsetY -= (my - offsetY) * (newScale / scale - 1);
+            scale = newScale; updateStatus();
+        }
+    }, { passive: false });
 
-    function updateStatus() { 
-        const statusEl = document.getElementById('status');
-        if(statusEl) statusEl.innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; 
-    }
-    function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
-    function autoLoad() { const saved = localStorage.getItem('endfield_save'); if (saved) try { placedItems = JSON.parse(saved); } catch (e) {} }
+    function updateStatus() { 
+        const statusEl = document.getElementById('status');
+        if(statusEl) statusEl.innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; 
+    }
+    function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
+    function autoLoad() { const saved = localStorage.getItem('endfield_save'); if (saved) try { placedItems = JSON.parse(saved); } catch (e) {} }
 
-    function downloadImage() {
-        if (placedItems.length === 0) return showModal("設備がありません。", false);
-        const expCanvas = document.getElementById('exportCanvas');
-        const expCtx = expCanvas.getContext('2d');
-        expCanvas.width = mapW * baseGridSize; expCanvas.height = mapH * baseGridSize;
-        expCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg').trim();
-        expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
-        expCtx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
-        expCtx.lineWidth = 1;
-        for(let i=0; i<=mapW; i++) { expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, expCanvas.height); expCtx.stroke(); }
-        for(let j=0; j<=mapH; j++) { expCtx.beginPath(); expCtx.moveTo(0, j*baseGridSize); expCtx.lineTo(expCanvas.width, j*baseGridSize); expCtx.stroke(); }
-        placedItems.forEach(item => { 
-            expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9; 
-            expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2); 
-            expCtx.globalAlpha = 1.0;
-            drawLabel(expCtx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
-        });
-        const link = document.createElement('a'); link.download = `endfield_plan.png`; link.href = expCanvas.toDataURL('image/png'); link.click();
-    }
-    
-    function exportData() {
-        const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
-        const dataArea = document.getElementById('data-text');
-        if(dataArea) { dataArea.value = code; showModal('コードを書き出しました。コピーして保存してください。', false); }
-    }
+    function downloadImage() {
+        if (placedItems.length === 0) return showModal("設備がありません。", false);
+        const expCanvas = document.getElementById('exportCanvas');
+        const expCtx = expCanvas.getContext('2d');
+        expCanvas.width = mapW * baseGridSize; expCanvas.height = mapH * baseGridSize;
+        expCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg').trim();
+        expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
+        expCtx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
+        expCtx.lineWidth = 1;
+        for(let i=0; i<=mapW; i++) { expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, expCanvas.height); expCtx.stroke(); }
+        for(let j=0; j<=mapH; j++) { expCtx.beginPath(); expCtx.moveTo(0, j*baseGridSize); expCtx.lineTo(expCanvas.width, j*baseGridSize); expCtx.stroke(); }
+        placedItems.forEach(item => { 
+            expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9; 
+            expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2); 
+            expCtx.globalAlpha = 1.0;
+            drawLabel(expCtx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
+        });
+        const link = document.createElement('a'); link.download = `endfield_plan.png`; link.href = expCanvas.toDataURL('image/png'); link.click();
+    }
+    
+    function exportData() {
+        const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
+        const dataArea = document.getElementById('data-text');
+        if(dataArea) { dataArea.value = code; showModal('コードを書き出しました。コピーして保存してください。', false); }
+    }
 
-    window.addEventListener('resize', centerMap);
-    loadConfig(); draw();
+    window.addEventListener('resize', centerMap);
+    loadConfig(); draw();
 </script>
 </body>
 </html>
