@@ -48,12 +48,10 @@
         label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; text-shadow: var(--text-outline); }
         h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); text-shadow: var(--text-outline); }
         
-        /* 統計パネル */
         #summary-panel { font-size: 0.85em; line-height: 1.6; border-left: 3px solid var(--accent); padding-left: 10px; margin-bottom: 10px; }
         .summary-item { display: flex; justify-content: space-between; }
         .val-stat { color: var(--accent); }
 
-        /* カテゴリ切替 */
         .cat-container { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
         .cat-btn { font-size: 0.7em; padding: 4px 8px; background: var(--btn-idle); border: 1px solid var(--btn-border); color: var(--text); border-radius: 3px; cursor: pointer; }
         .cat-btn.active { background: var(--accent); color: #000; font-weight: bold; }
@@ -77,3 +75,230 @@
             border-radius: 3px; border: 1px solid var(--accent); opacity: 0; transition: 0.2s;
             pointer-events: none; position: absolute; right: 5px; font-weight: normal; text-shadow: none;
         }
+        .tool-btn:hover::after { opacity: 1; }
+        .tool-btn:hover .count-badge { visibility: hidden; }
+
+        .action-btn { font-weight: bold; justify-content: center; text-align: center; }
+        .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
+        .save-btn:hover { opacity: 1; }
+
+        .theme-select { width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; outline: none; cursor: pointer; font-weight: bold; }
+
+        #main { flex: 1; position: relative; overflow: hidden; background: var(--bg); cursor: crosshair; }
+        #main.dragging-map { cursor: grabbing; }
+        #main.dragging-item { cursor: move; }
+        canvas { display: block; }
+        
+        .status-bar { 
+            position: fixed; bottom: 15px; left: calc(var(--sidebar-w) + 20px);
+            background: rgba(0,0,0,0.8); padding: 6px 14px; font-size: 12px; border-radius: 4px; 
+            z-index: 90; pointer-events: none; transition: left 0.3s ease; 
+            border: 1px solid var(--accent); color: var(--accent);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5); white-space: nowrap; text-shadow: var(--text-outline);
+        }
+        body.sidebar-closed .status-bar { left: 20px; }
+
+        .controls-hint { font-size: 0.7em; color: #888; line-height: 1.6; background: rgba(128,128,128,0.1); padding: 10px; border-radius: 4px; border-left: 3px solid var(--accent); }
+        textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; text-shadow: var(--text-outline); }
+        .warning-text { font-size: 0.65em; color: var(--warning); margin-top: 8px; line-height: 1.4; border-top: 1px dashed rgba(128,128,128,0.3); padding-top: 8px; }
+    </style>
+</head>
+<body>
+
+<button id="toggle-sidebar" onclick="toggleSidebar()">◀</button>
+
+<div id="sidebar">
+    <h2>工業図面作成</h2>
+
+    <div class="tool-group">
+        <label>消費統計</label>
+        <div id="summary-panel">
+            <div class="summary-item"><span>総消費電力:</span> <span id="sum-power" class="val-stat">0</span></div>
+            <div class="summary-item"><span>総資源生産量:</span> <span id="sum-resource" class="val-stat">0</span></div>
+        </div>
+    </div>
+    
+    <div class="tool-group" id="dynamic-tools">
+        <label>設備一覧</label>
+        <div class="cat-container" id="category-filters">
+            <button id="cat-all" class="cat-btn active" onclick="filterCategory('all')">すべて</button>
+        </div>
+        <div id="buildings-container">読み込み中...</div>
+    </div>
+
+    <div class="tool-group">
+        <label>基本操作</label>
+        <div class="grid-2">
+            <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser">削除モード</button>
+            <button class="tool-btn action-btn" onclick="clearCanvas()" style="color:var(--danger)">すべて削除</button>
+        </div>
+    </div>
+
+    <div class="tool-group" id="save-area">
+        <label>設計図コード</label>
+        <div class="grid-2">
+            <button class="tool-btn action-btn" onclick="exportData()">書き出し</button>
+            <button class="tool-btn action-btn" onclick="importData()">読み込み</button>
+            <textarea id="data-text" placeholder="ここにコードを入力/出力" style="grid-column: span 2;"></textarea>
+            <button class="tool-btn action-btn save-btn" onclick="downloadImage()">画像を保存 (PNG)</button>
+        </div>
+        <div class="warning-text">※履歴削除等でデータが消えるため、コードの書き出し保存を推奨します。</div>
+    </div>
+
+    <div class="tool-group">
+        <label>テーマ設定</label>
+        <select class="theme-select" onchange="changeTheme(this.value)" id="theme-selector">
+            <option value="default">ダーク</option>
+            <option value="white">ホワイト</option>
+        </select>
+    </div>
+    
+    <div class="controls-hint">
+        <strong>【画面移動】</strong>マウスホイール押し込み<br>
+        <strong>【施設の設置/移動】</strong>左クリック/ドラッグ<br>
+        <strong>【施設の削除】</strong>右クリック<br>
+        <strong>【ズーム】</strong>マウスホイール(25%~150%)
+    </div>
+</div>
+
+<div id="main">
+    <canvas id="gridCanvas"></canvas>
+    <div class="status-bar" id="status">座標: 0, 0 | ズーム: 25%</div>
+</div>
+
+<canvas id="exportCanvas" style="display:none;"></canvas>
+
+<script>
+    const canvas = document.getElementById('gridCanvas');
+    const ctx = canvas.getContext('2d');
+    const mainArea = document.getElementById('main');
+    const baseGridSize = 30;
+    const mapSize = 100;
+    
+    let scale = 0.25; 
+    let offsetX = 0;
+    let offsetY = 0;
+    let isDraggingMap = false;
+    let draggingItem = null;
+    let dragStartPos = { x: 0, y: 0 };
+    let lastMousePos = { x: 0, y: 0 };
+    let placedItems = [];
+    let currentTool = null;
+    let mouseGrid = { x: 0, y: 0 };
+    let allBuildings = [];
+    let currentCategory = 'all';
+
+    canvas.width = mapSize * baseGridSize;
+    canvas.height = mapSize * baseGridSize;
+
+    function changeTheme(theme) {
+        document.body.className = theme === 'default' ? '' : 'theme-' + theme;
+        localStorage.setItem('endfield_theme', theme);
+    }
+
+    function loadTheme() {
+        const savedTheme = localStorage.getItem('endfield_theme') || 'default';
+        const selector = document.getElementById('theme-selector');
+        selector.value = (savedTheme === 'default' || savedTheme === 'white') ? savedTheme : 'default';
+        changeTheme(selector.value);
+    }
+
+    function centerMap() {
+        const rect = mainArea.getBoundingClientRect();
+        offsetX = (rect.width - mapSize * baseGridSize * scale) / 2;
+        offsetY = (rect.height - mapSize * baseGridSize * scale) / 2;
+        updateStatus();
+    }
+
+    function toggleSidebar() {
+        document.body.classList.toggle('sidebar-closed');
+        const btn = document.getElementById('toggle-sidebar');
+        btn.innerText = document.body.classList.contains('sidebar-closed') ? '▶' : '◀';
+        setTimeout(centerMap, 310);
+    }
+
+    function updateStats() {
+        let power = 0;
+        let resource = 0;
+        const counts = {};
+
+        placedItems.forEach(item => {
+            if(item.power < 0) power += item.power;
+            resource += (item.resource || 0);
+            counts[item.id] = (counts[item.id] || 0) + 1;
+        });
+
+        const pEl = document.getElementById('sum-power');
+        const rEl = document.getElementById('sum-resource');
+        if(pEl) pEl.innerText = power;
+        if(rEl) rEl.innerText = resource;
+
+        if(allBuildings) {
+            allBuildings.forEach(b => {
+                const badge = document.getElementById(`count-${b.id}`);
+                if(badge) badge.innerText = counts[b.id] || 0;
+            });
+        }
+    }
+
+    function filterCategory(cat) {
+        currentCategory = cat;
+        document.querySelectorAll('.cat-btn').forEach(btn => {
+            const btnLabel = (cat === 'all') ? 'すべて' : cat;
+            btn.classList.toggle('active', btn.innerText === btnLabel);
+        });
+        renderButtons();
+    }
+
+    async function loadConfig() {
+        try {
+            const response = await fetch('data.json?t=' + new Date().getTime());
+            if (!response.ok) throw new Error("File not found");
+            const data = await response.json();
+            allBuildings = data.buildings || [];
+            
+            // カテゴリボタンの生成（重複なし）
+            const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
+            const catContainer = document.getElementById('category-filters');
+            cats.forEach(c => {
+                const btn = document.createElement('button');
+                btn.className = 'cat-btn';
+                btn.innerText = c;
+                btn.onclick = () => filterCategory(c);
+                catContainer.appendChild(btn);
+            });
+
+            renderButtons();
+            autoLoad();
+            loadTheme();
+            centerMap();
+            updateStats();
+        } catch (err) { 
+            console.error(err);
+            document.getElementById('buildings-container').innerHTML = "JSON読み込みエラー：data.jsonを確認してください。"; 
+        }
+    }
+
+    function renderButtons() {
+        const container = document.getElementById('buildings-container');
+        if(!container) return;
+        container.innerHTML = '';
+        const filtered = allBuildings.filter(b => currentCategory === 'all' || b.category === currentCategory);
+        
+        filtered.forEach(b => {
+            const btn = document.createElement('button');
+            btn.className = 'tool-btn' + (currentTool && currentTool.id === b.id ? ' active' : '');
+            btn.id = 'btn-' + b.id;
+            btn.innerHTML = `<span>${b.name}</span><span class="count-badge" id="count-${b.id}">0</span>`; 
+            btn.setAttribute('data-size', `${b.w}×${b.h}`);
+            btn.onclick = () => setTool(b);
+            container.appendChild(btn);
+        });
+        updateStats(); // 描画後にカウントを反映
+    }
+
+    function setTool(config) {
+        currentTool = config;
+        renderButtons();
+        const eraserBtn = document.getElementById('btn-eraser');
+        if(eraserBtn)
