@@ -6,15 +6,19 @@
     <title>Endfield Industrial Planner</title>
     <style>
         :root { 
-            /* 共通カラー（イエローアクセント） */
+            /* 共通カラー */
             --accent: #ffcf00; --danger: #ff4444; --warning: #ffae00; --success: #2ecc71;
-            /* デフォルト：ダークテーマ（エンドフィールド風） */
-            --bg: #121416; --panel: #1c1f23; --text: #ffffff; --grid: #2a2d30; --btn-bg: rgba(255, 207, 0, 0.1);
+            /* ダーク */
+            --bg: #121416; --panel: #1c1f23; --text: #ffffff; --grid: #2a2d30; 
+            --btn-idle: rgba(255, 255, 255, 0.05); /* 未選択時の色 */
+            --btn-border: rgba(128, 128, 128, 0.3);
         }
         
-        /* ライトテーマ（イエローアクセント） */
-        body.theme-light {
-            --bg: #f5f5f5; --panel: #ffffff; --text: #1a1c1e; --grid: #d0d0d0; --btn-bg: rgba(0, 0, 0, 0.05);
+        /* ホワイト */
+        body.theme-white {
+            --bg: #f5f5f5; --panel: #ffffff; --text: #1a1c1e; --grid: #d0d0d0; 
+            --btn-idle: rgba(0, 0, 0, 0.03); /* 未選択時の色 */
+            --btn-border: rgba(0, 0, 0, 0.1);
         }
 
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
@@ -36,16 +40,34 @@
         }
         body.sidebar-closed #toggle-sidebar { left: 0; }
 
-        .tool-group { border: 1px solid rgba(128,128,128,0.3); padding: 10px; border-radius: 4px; margin-bottom: 5px; }
+        .tool-group { border: 1px solid var(--btn-border); padding: 10px; border-radius: 4px; margin-bottom: 5px; }
         label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
         h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); }
         
-        .tool-btn { width: 100%; padding: 10px; margin: 4px 0; background: var(--btn-bg); border: 1px solid rgba(128,128,128,0.2); color: var(--text); cursor: pointer; text-align: left; transition: 0.2s; border-radius: 4px; font-size: 0.9em; display: flex; align-items: center; gap: 8px; }
-        .tool-btn:hover { background: rgba(255, 207, 0, 0.2); border-color: var(--accent); }
-        .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); }
+        /* --- ボタンのデザイン調整 --- */
+        .tool-btn { 
+            width: 100%; padding: 10px; margin: 4px 0; 
+            background: var(--btn-idle); /* 通常時は背景に馴染ませる */
+            border: 1px solid var(--btn-border); 
+            color: var(--text); cursor: pointer; text-align: left; transition: 0.2s; border-radius: 4px; 
+            font-size: 0.9em; display: flex; align-items: center; gap: 8px; 
+            opacity: 0.8;
+        }
+        .tool-btn:hover { 
+            background: rgba(255, 207, 0, 0.15); 
+            border-color: var(--accent);
+            opacity: 1;
+        }
+        .tool-btn.active { 
+            background: var(--accent); /* 選択時はイエロー */
+            color: #000; font-weight: bold; border-color: var(--accent); 
+            opacity: 1;
+            box-shadow: 0 0 10px rgba(255, 207, 0, 0.3);
+        }
+        
         .action-btn { justify-content: center; text-align: center; font-weight: bold; }
-        .save-btn { background: var(--success); color: white; border: none; margin-top: 8px !important; }
-        .save-btn:hover { opacity: 0.9; }
+        .save-btn { background: var(--success); color: white; border: none; margin-top: 8px !important; opacity: 1; }
+        .save-btn:hover { background: #27ae60; }
 
         .theme-select { width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; outline: none; cursor: pointer; font-weight: bold; }
 
@@ -98,8 +120,8 @@
     <div class="tool-group">
         <label>テーマ設定</label>
         <select class="theme-select" onchange="changeTheme(this.value)" id="theme-selector">
-            <option value="default">ダーク (エンドフィールド風)</option>
-            <option value="light">ライト (クリーン)</option>
+            <option value="default">ダーク</option>
+            <option value="white">ホワイト</option>
         </select>
     </div>
     
@@ -148,7 +170,7 @@
     function loadTheme() {
         const savedTheme = localStorage.getItem('endfield_theme') || 'default';
         const selector = document.getElementById('theme-selector');
-        if (savedTheme !== 'default' && savedTheme !== 'light') {
+        if (savedTheme !== 'default' && savedTheme !== 'white') {
             changeTheme('default');
             selector.value = 'default';
         } else {
