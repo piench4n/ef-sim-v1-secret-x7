@@ -205,6 +205,7 @@
     let allBuildings = [];
     let currentCategory = 'all';
 
+    // --- モーダル管理 ---
     function showModal(text, isConfirm, onOk) {
         const overlay = document.getElementById('modal-overlay');
         const textEl = document.getElementById('modal-text');
@@ -213,7 +214,7 @@
         textEl.innerText = text;
         overlay.style.display = 'flex';
         cancelBtn.style.display = isConfirm ? 'inline-block' : 'none';
-        okBtn.onclick = () => { overlay.style.display = 'none'; onOk(); };
+        okBtn.onclick = () => { overlay.style.display = 'none'; if(onOk) onOk(); };
         cancelBtn.onclick = () => { overlay.style.display = 'none'; };
     }
 
@@ -224,15 +225,17 @@
     }
 
     function confirmImport() {
+        const dataArea = document.getElementById('data-text');
+        if (!dataArea.value.trim()) return showModal('コードを入力してください', false);
         showModal('設計図を読み込みますか？現在の配置は上書きされます。', true, () => {
-            const dataArea = document.getElementById('data-text');
             try {
                 const decoded = JSON.parse(decodeURIComponent(escape(atob(dataArea.value))));
                 placedItems = decoded; updateStats(); autoSave();
-            } catch (e) { showModal('無効なコードです', false, () => {}); }
+            } catch (e) { showModal('無効なコードです', false); }
         });
     }
 
+    // --- マップ・UI操作 ---
     function changeMapRatio(val) {
         const [w, h] = val.split(':').map(Number);
         mapW = w; mapH = h;
@@ -318,6 +321,7 @@
 
     function setTool(config) {
         currentTool = JSON.parse(JSON.stringify(config));
+        currentTool.angle = 0; 
         renderButtons();
         document.getElementById('btn-eraser').classList.remove('active');
         document.getElementById('btn-move').classList.remove('active');
@@ -335,68 +339,74 @@
         document.getElementById('btn-move').classList.add('active');
     }
 
+    // --- 回転・ショートカット ---
     function rotateItem(item) {
         if (!item) return;
-        const temp = item.w;
-        item.w = item.h;
-        item.h = temp;
+        const temp = item.w; item.w = item.h; item.h = temp;
+        item.angle = ((item.angle || 0) + 1) % 4;
     }
 
     function rotateMap() {
         placedItems.forEach(item => {
-            const oldX = item.x;
-            const oldY = item.y;
-            const oldW = item.w;
-            const oldH = item.h;
+            const oldX = item.x; const oldY = item.y; const oldW = item.w; const oldH = item.h;
             item.x = mapH - oldY - oldH;
             item.y = oldX;
             item.w = oldH;
             item.h = oldW;
+            item.angle = ((item.angle || 0) + 1) % 4;
         });
-        
         if (mapW !== mapH) {
             const selector = document.getElementById('map-ratio');
-            const currentRatio = selector.value;
-            const reversedRatio = currentRatio.split(':').reverse().join(':');
+            const reversedRatio = selector.value.split(':').reverse().join(':');
             for (let i = 0; i < selector.options.length; i++) {
                 if (selector.options[i].value === reversedRatio) {
-                    selector.value = reversedRatio;
-                    changeMapRatio(reversedRatio);
-                    break;
+                    selector.value = reversedRatio; changeMapRatio(reversedRatio); break;
                 }
             }
         }
-        updateStats();
-        autoSave();
+        updateStats(); autoSave();
     }
 
     window.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
-        if (e.ctrlKey && key === 'r') {
-            e.preventDefault();
-            if (!draggingItem) rotateMap();
-            return;
-        }
+        if (e.ctrlKey && key === 'r') { e.preventDefault(); if (!draggingItem) rotateMap(); return; }
         if (key === 'r') {
-            if (draggingItem) { rotateItem(draggingItem); } 
-            else if (currentTool && currentTool.id !== 'eraser') { rotateItem(currentTool); }
+            if (draggingItem) rotateItem(draggingItem);
+            else if (currentTool && currentTool.id !== 'eraser') rotateItem(currentTool);
         }
     });
 
-    function drawLabel(context, text, x, y, maxWidth) {
-        const padding = 6;
-        const availableW = maxWidth - padding * 2;
-        context.font = "bold 13px sans-serif";
-        context.textAlign = "center";
-        context.textBaseline = "middle";
+    // --- 描画ロジック ---
+    function drawLabel(context, text, x, y, itemW, itemH, angle = 0) {
+        const pxW = itemW * baseGridSize; const pxH = itemH * baseGridSize;
+        
+        context.save();
+        context.translate(x, y);
+        context.rotate(angle * Math.PI / 2);
+        context.fillStyle = "rgba(255, 207, 0, 0.9)";
+        context.beginPath();
+        const triSize = Math.min(5, pxW/4);
+        context.moveTo(0, -pxH/2 + 1); context.lineTo(-triSize, -pxH/2 + triSize + 1); context.lineTo(triSize, -pxH/2 + triSize + 1);
+        context.fill();
+        context.restore();
+
+        let fontSize = (itemW === 1 || itemH === 1) ? 11 : 13;
+        context.font = `bold ${fontSize}px sans-serif`;
+        context.textAlign = "center"; context.textBaseline = "middle";
+        const maxAvailableW = pxW - 4;
         let displayName = text;
-        if (context.measureText(displayName).width > availableW) {
-            while (displayName.length > 0 && context.measureText(displayName + "...").width > availableW) {
-                displayName = displayName.slice(0, -1);
-            }
-            displayName += "...";
+
+        if (context.measureText(displayName).width > maxAvailableW) {
+            let shortName = text[0] + "...";
+            if (context.measureText(shortName).width <= maxAvailableW) {
+                displayName = shortName;
+                for (let i = 2; i < text.length; i++) {
+                    let testName = text.substring(0, i) + "...";
+                    if (context.measureText(testName).width <= maxAvailableW) displayName = testName;
+                    else break;
+                }
+            } else displayName = text[0];
         }
-        if (context.measureText("...").width > availableW && availableW < 12) return;
         context.fillStyle = "rgba(0, 0, 0, 0.85)";
         context.fillText(displayName, x + 0.5, y + 0.5);
         context.fillStyle = "#fff";
@@ -423,19 +433,15 @@
             ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
             if (item !== draggingItem) {
                 ctx.globalAlpha = 1.0;
-                drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w*baseGridSize);
+                drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
             }
             if(item.range > 0 && item !== draggingItem) {
-                let shouldShowRange = false;
+                let show = false;
                 if(activePreview) {
-                    const centerX = item.x + 0.5;
-                    const centerY = item.y + 0.5;
-                    if (px < centerX + item.range && px + activePreview.w > centerX - item.range &&
-                        py < centerY + item.range && py + activePreview.h > centerY - item.range) {
-                        shouldShowRange = true;
-                    }
+                    const cx = item.x + 0.5; const cy = item.y + 0.5;
+                    if (px < cx + item.range && px + activePreview.w > cx - item.range && py < cy + item.range && py + activePreview.h > cy - item.range) show = true;
                 }
-                if(shouldShowRange) {
+                if(show) {
                     ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
                     ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
                     ctx.setLineDash([]);
@@ -449,7 +455,7 @@
             ctx.fillStyle = occupied ? 'red' : activePreview.color;
             ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
             ctx.globalAlpha = 1.0;
-            drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w*baseGridSize);
+            drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w, activePreview.h, activePreview.angle || 0);
             if(activePreview.range > 0) {
                 ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
                 ctx.strokeRect((px-activePreview.range+0.5)*baseGridSize, (py-activePreview.range+0.5)*baseGridSize, (activePreview.range*2)*baseGridSize, (activePreview.range*2)*baseGridSize);
@@ -474,7 +480,11 @@
             } else if (currentTool && currentTool.id !== 'eraser') {
                 const px = Math.min(mapW - currentTool.w, mouseGrid.x);
                 const py = Math.min(mapH - currentTool.h, mouseGrid.y);
-                if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { placedItems.push(JSON.parse(JSON.stringify(currentTool))); placedItems[placedItems.length-1].x = px; placedItems[placedItems.length-1].y = py; updateStats(); autoSave(); }
+                if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { 
+                    const newItem = JSON.parse(JSON.stringify(currentTool));
+                    newItem.x = px; newItem.y = py;
+                    placedItems.push(newItem); updateStats(); autoSave(); 
+                }
             }
         }
         if (e.button === 2) { 
@@ -525,7 +535,7 @@
     function autoLoad() { const saved = localStorage.getItem('endfield_save'); if (saved) try { placedItems = JSON.parse(saved); } catch (e) {} }
 
     function downloadImage() {
-        if (placedItems.length === 0) return showModal("設備がありません。", false, ()=>{});
+        if (placedItems.length === 0) return showModal("設備がありません。", false);
         const expCanvas = document.getElementById('exportCanvas');
         const expCtx = expCanvas.getContext('2d');
         expCanvas.width = mapW * baseGridSize; expCanvas.height = mapH * baseGridSize;
@@ -539,7 +549,7 @@
             expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9; 
             expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2); 
             expCtx.globalAlpha = 1.0;
-            drawLabel(expCtx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w*baseGridSize);
+            drawLabel(expCtx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
         });
         const link = document.createElement('a'); link.download = `endfield_plan.png`; link.href = expCanvas.toDataURL('image/png'); link.click();
     }
@@ -547,7 +557,7 @@
     function exportData() {
         const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
         const dataArea = document.getElementById('data-text');
-        if(dataArea) { dataArea.value = code; showModal('コードを書き出しました。コピーして保存してください。', false, () => {}); }
+        if(dataArea) { dataArea.value = code; showModal('コードを書き出しました。コピーして保存してください。', false); }
     }
 
     window.addEventListener('resize', centerMap);
