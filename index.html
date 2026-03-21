@@ -159,7 +159,7 @@
         <strong>【画面移動】</strong>マウスホイール押し込み<br>
         <strong>【施設の設置/移動】</strong>左クリック/ドラッグ<br>
         <strong>【施設の削除】</strong>右クリック<br>
-        <strong>【ズーム】</strong>マウスホイール(25%~150%)
+        <strong>【ズーム】</strong>マウスホイール(10%~150%)
     </div>
 </div>
 
@@ -324,6 +324,31 @@
         if(eraserBtn) eraserBtn.classList.add('active');
     }
 
+    // ラベル描画用ヘルパー：枠に収まるようにテキストを処理
+    function drawLabel(context, text, x, y, maxWidth) {
+        const padding = 4;
+        const availableW = maxWidth - padding * 2;
+        context.font = "bold 10px sans-serif";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        
+        let displayName = text;
+        if (context.measureText(displayName).width > availableW) {
+            while (displayName.length > 0 && context.measureText(displayName + "...").width > availableW) {
+                displayName = displayName.slice(0, -1);
+            }
+            displayName += "...";
+        }
+        
+        // 文字が小さすぎて「...」すら入らない場合は描画しない
+        if (context.measureText("...").width > availableW && availableW < 10) return;
+
+        context.fillStyle = "rgba(0, 0, 0, 0.7)";
+        context.fillText(displayName, x, y);
+        context.fillStyle = "#fff";
+        context.fillText(displayName, x, y - 0.5);
+    }
+
     function draw() {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -332,14 +357,9 @@
         ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
         ctx.lineWidth = 1/scale;
         
-        for(let i=0; i<=mapW; i++) {
-            ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke();
-        }
-        for(let j=0; j<=mapH; j++) {
-            ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke();
-        }
+        for(let i=0; i<=mapW; i++) { ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke(); }
+        for(let j=0; j<=mapH; j++) { ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke(); }
 
-        // プレビュー位置の計算（描画ループ内で共有）
         const activePreview = draggingItem || (currentTool && currentTool.id !== 'eraser' ? currentTool : null);
         const px = activePreview ? Math.min(mapW - activePreview.w, mouseGrid.x) : -100;
         const py = activePreview ? Math.min(mapH - activePreview.h, mouseGrid.y) : -100;
@@ -348,22 +368,22 @@
             ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.15 : 0.8;
             ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
             
-            // --- 範囲ガイドのロジック ---
-            // 1. 本来の範囲表示（配置済みアイテム自身の範囲。ドラッグ中は隠す）
+            // ラベル表示（ドラッグ中以外）
+            if (item !== draggingItem) {
+                ctx.globalAlpha = 1.0;
+                drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w*baseGridSize);
+            }
+
             if(item.range > 0 && item !== draggingItem) {
                 let shouldShowRange = false;
-                
-                // ガイド発動条件：設置/移動中のアイテムがこのポールの範囲内に重なっているか？
                 if(activePreview) {
                     const centerX = item.x + 0.5;
                     const centerY = item.y + 0.5;
-                    // アイテムの矩形が範囲（正方形）に触れているか判定
                     if (px < centerX + item.range && px + activePreview.w > centerX - item.range &&
                         py < centerY + item.range && py + activePreview.h > centerY - item.range) {
                         shouldShowRange = true;
                     }
                 }
-
                 if(shouldShowRange) {
                     ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
                     ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
@@ -372,14 +392,15 @@
             }
         });
 
-        // プレビュー（ゴースト）の描画
         if(activePreview) {
             ctx.globalAlpha = 0.5;
             const occupied = isAreaOccupied(px, py, activePreview.w, activePreview.h, draggingItem);
             ctx.fillStyle = occupied ? 'red' : activePreview.color;
             ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
             
-            // 移動中デバイス自身の範囲は常に表示してガイドとする
+            ctx.globalAlpha = 1.0;
+            drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w*baseGridSize);
+
             if(activePreview.range > 0) {
                 ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
                 ctx.strokeRect((px-activePreview.range+0.5)*baseGridSize, (py-activePreview.range+0.5)*baseGridSize, (activePreview.range*2)*baseGridSize, (activePreview.range*2)*baseGridSize);
@@ -465,7 +486,13 @@
         expCtx.lineWidth = 1;
         for(let i=0; i<=mapW; i++) { expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, expCanvas.height); expCtx.stroke(); }
         for(let j=0; j<=mapH; j++) { expCtx.beginPath(); expCtx.moveTo(0, j*baseGridSize); expCtx.lineTo(expCanvas.width, j*baseGridSize); expCtx.stroke(); }
-        placedItems.forEach(item => { expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9; expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2); });
+        
+        placedItems.forEach(item => { 
+            expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9; 
+            expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2); 
+            expCtx.globalAlpha = 1.0;
+            drawLabel(expCtx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w*baseGridSize);
+        });
         const link = document.createElement('a'); link.download = `endfield_plan.png`; link.href = expCanvas.toDataURL('image/png'); link.click();
     }
     
