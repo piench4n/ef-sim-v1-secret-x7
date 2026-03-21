@@ -14,16 +14,8 @@
             --text-outline: none;
             --tooltip-bg: rgba(0, 0, 0, 0.9);
         }
-        
-        body.theme-white {
-            --bg: #f5f5f5; --panel: #ffffff; --text: #1a1c1e; --grid: #d0d0d0; 
-            --btn-idle: rgba(0, 0, 0, 0.03);
-            --btn-border: rgba(0, 0, 0, 0.1);
-            --text-outline: -1px -1px 0 rgba(0,0,0,0.4), 1px -1px 0 rgba(0,0,0,0.4), -1px 1px 0 rgba(0,0,0,0.4), 1px 1px 0 rgba(0,0,0,0.4), 0px 0px 2px rgba(0,0,0,0.5);
-            --tooltip-bg: rgba(50, 50, 50, 0.9);
-        }
 
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
         
         #sidebar { 
             width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--panel); border-right: 2px solid rgba(128,128,128,0.2); padding: 20px; 
@@ -38,17 +30,16 @@
             position: fixed; left: var(--sidebar-w); top: 10px; z-index: 110;
             background: var(--panel); border: 1px solid rgba(128,128,128,0.3); color: var(--accent);
             padding: 8px 12px; cursor: pointer; border-radius: 0 4px 4px 0;
-            transition: left 0.3s ease; font-weight: bold; text-shadow: var(--text-outline);
+            transition: left 0.3s ease; font-weight: bold;
         }
         body.sidebar-closed #toggle-sidebar { left: 0; }
 
         .tool-group { border: 1px solid var(--btn-border); padding: 10px; border-radius: 4px; margin-bottom: 5px; text-align: left; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0; }
 
-        label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; text-shadow: var(--text-outline); }
-        h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); text-shadow: var(--text-outline); }
+        label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+        h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); }
         
-        /* 統合された統計表示スタイル */
         #summary-panel { font-size: 0.85em; line-height: 1.6; border-bottom: 1px solid var(--btn-border); padding-bottom: 8px; margin-bottom: 12px; }
         .summary-item { display: flex; justify-content: space-between; }
         .val-stat { color: var(--accent); font-weight: bold; }
@@ -74,7 +65,7 @@
         .tool-btn::after {
             content: attr(data-size); font-size: 9px; background: var(--tooltip-bg); color: #fff; padding: 2px 5px;
             border-radius: 3px; border: 1px solid var(--accent); opacity: 0; transition: 0.2s;
-            pointer-events: none; position: absolute; right: 5px; font-weight: normal; text-shadow: none;
+            pointer-events: none; position: absolute; right: 5px; font-weight: normal;
         }
         .tool-btn:hover::after { opacity: 1; }
         .tool-btn:hover .count-badge { visibility: hidden; }
@@ -82,8 +73,6 @@
         .action-btn { font-weight: bold; justify-content: center; text-align: center; }
         .save-btn { grid-column: span 2; margin-top: 8px !important; opacity: 0.8; }
         .save-btn:hover { opacity: 1; }
-
-        .theme-select { width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; outline: none; cursor: pointer; font-weight: bold; }
 
         #main { flex: 1; position: relative; overflow: hidden; background: var(--bg); cursor: crosshair; }
         #main.dragging-map { cursor: grabbing; }
@@ -95,12 +84,12 @@
             background: rgba(0,0,0,0.8); padding: 6px 14px; font-size: 12px; border-radius: 4px; 
             z-index: 90; pointer-events: none; transition: left 0.3s ease; 
             border: 1px solid var(--accent); color: var(--accent);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5); white-space: nowrap; text-shadow: var(--text-outline);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5); white-space: nowrap;
         }
         body.sidebar-closed .status-bar { left: 20px; }
 
         .controls-hint { font-size: 0.7em; color: #888; line-height: 1.6; background: rgba(128,128,128,0.1); padding: 10px; border-radius: 4px; border-left: 3px solid var(--accent); }
-        textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; text-shadow: var(--text-outline); }
+        textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
         .warning-text { font-size: 0.65em; color: var(--warning); margin-top: 8px; line-height: 1.4; border-top: 1px dashed rgba(128,128,128,0.3); padding-top: 8px; }
     </style>
 </head>
@@ -141,14 +130,6 @@
         </div>
         <div class="warning-text">※履歴削除等でデータが消えるため、コードの書き出し保存を推奨します。</div>
     </div>
-
-    <div class="tool-group">
-        <label>テーマ設定</label>
-        <select class="theme-select" onchange="changeTheme(this.value)" id="theme-selector">
-            <option value="default">ダーク</option>
-            <option value="white">ホワイト</option>
-        </select>
-    </div>
     
     <div class="controls-hint">
         <strong>【画面移動】</strong>マウスホイール押し込み<br>
@@ -188,18 +169,6 @@
     canvas.width = mapSize * baseGridSize;
     canvas.height = mapSize * baseGridSize;
 
-    function changeTheme(theme) {
-        document.body.className = theme === 'default' ? '' : 'theme-' + theme;
-        localStorage.setItem('endfield_theme', theme);
-    }
-
-    function loadTheme() {
-        const savedTheme = localStorage.getItem('endfield_theme') || 'default';
-        const selector = document.getElementById('theme-selector');
-        selector.value = (savedTheme === 'default' || savedTheme === 'white') ? savedTheme : 'default';
-        changeTheme(selector.value);
-    }
-
     function centerMap() {
         const rect = mainArea.getBoundingClientRect();
         offsetX = (rect.width - mapSize * baseGridSize * scale) / 2;
@@ -217,15 +186,12 @@
     function updateStats() {
         let power = 0;
         const counts = {};
-
         placedItems.forEach(item => {
             if(item.power < 0) power += item.power;
             counts[item.id] = (counts[item.id] || 0) + 1;
         });
-
         const pEl = document.getElementById('sum-power');
         if(pEl) pEl.innerText = power;
-
         if(allBuildings) {
             allBuildings.forEach(b => {
                 const badge = document.getElementById(`count-${b.id}`);
@@ -262,7 +228,6 @@
 
             renderButtons();
             autoLoad();
-            loadTheme();
             centerMap();
             updateStats();
         } catch (err) { 
