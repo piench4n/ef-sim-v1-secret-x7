@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="robots" content="noindex,nofollow">
-    <title>Endfield Industrial Planner - Moveable Edition</title>
+    <title>Endfield Industrial Planner</title>
     <style>
         :root { --bg: #1a1c1e; --panel: #2d2f31; --accent: #ffcf00; --text: #e0e0e0; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
@@ -31,10 +31,10 @@
         <button class="tool-btn" onclick="clearCanvas()" style="color:#ff6b6b">🗑 全消去</button>
     </div>
     <div class="controls-hint">
-        <strong>【画面移動】</strong> 中ボタン(押し込み)<br>
-        <strong>【設置 / 移動】</strong> 左ドラッグ<br>
-        <strong>【削除】</strong> 右クリック<br>
-        <strong>【ズーム】</strong> ホイール (30%-150%)
+        <strong>【画面移動】</strong>マウスホイール押し込み<br>
+        <strong>【施設の設置/移動】</strong>左クリック/ドラッグ<br>
+        <strong>【施設の削除】</strong>右クリック<br>
+        <strong>【ズーム】</strong>マウスホイール(30%~150%)
     </div>
 </div>
 
@@ -135,7 +135,6 @@
             ctx.fillRect(mouseGrid.x*baseGridSize, mouseGrid.y*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
         }
         
-        // 移動中のプレビュー表示
         if(draggingItem) {
             ctx.globalAlpha = 0.6;
             const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, draggingItem.w, draggingItem.h, draggingItem);
@@ -155,31 +154,29 @@
     }
 
     mainArea.addEventListener('mousedown', (e) => {
-        if (e.button === 1) { // 中ボタン：マップ移動
+        if (e.button === 1) {
             isDraggingMap = true;
             lastMousePos = { x: e.clientX, y: e.clientY };
             mainArea.classList.add('dragging-map');
             return;
         }
 
-        if (e.button === 0) { // 左ボタン
+        if (e.button === 0) {
             const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
             
             if (currentTool && currentTool.id === 'eraser') {
                 if (target) placedItems = placedItems.filter(i => i !== target);
             } else if (target) {
-                // 既存の施設を掴む
                 draggingItem = target;
                 dragStartPos = { x: target.x, y: target.y };
                 mainArea.classList.add('dragging-item');
             } else if (currentTool) {
-                // 新規設置
                 const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, currentTool.w, currentTool.h);
                 if (!occupied) placedItems.push({ ...currentTool, x: mouseGrid.x, y: mouseGrid.y });
             }
         }
 
-        if (e.button === 2) { // 右ボタン：即削除
+        if (e.button === 2) {
             placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h));
         }
     });
@@ -204,13 +201,11 @@
 
     window.addEventListener('mouseup', () => {
         if (draggingItem) {
-            // 移動確定
             const occupied = isAreaOccupied(mouseGrid.x, mouseGrid.y, draggingItem.w, draggingItem.h, draggingItem);
             if (!occupied) {
                 draggingItem.x = mouseGrid.x;
                 draggingItem.y = mouseGrid.y;
             } else {
-                // 重なっていたら元の場所に戻す
                 draggingItem.x = dragStartPos.x;
                 draggingItem.y = dragStartPos.y;
             }
