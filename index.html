@@ -3,24 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="robots" content="noindex,nofollow">
-    <title>Endfield Industrial Planner - Multi-Control Edition</title>
+    <title>Endfield Industrial Planner</title>
     <style>
         :root { --bg: #1a1c1e; --panel: #2d2f31; --accent: #ffcf00; --text: #e0e0e0; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
-        
         #sidebar { width: 280px; background: var(--panel); border-right: 2px solid #444; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; z-index: 100; }
         .tool-group { border: 1px solid #555; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
-        .tool-btn { 
-            width: 100%; padding: 12px; margin: 5px 0; background: #3d3f41; border: 1px solid #555; 
-            color: white; cursor: pointer; text-align: left; transition: 0.2s; border-radius: 4px;
-        }
+        .tool-btn { width: 100%; padding: 12px; margin: 5px 0; background: #3d3f41; border: 1px solid #555; color: white; cursor: pointer; text-align: left; transition: 0.2s; border-radius: 4px; }
         .tool-btn:hover { background: #4d4f51; }
         .tool-btn.active { background: var(--accent); color: black; font-weight: bold; }
-
         #main { flex: 1; position: relative; overflow: hidden; background: #111; cursor: crosshair; }
         #main.dragging { cursor: grabbing; }
         canvas { display: block; }
-        
         .status-bar { position: fixed; bottom: 10px; left: 290px; background: rgba(0,0,0,0.7); padding: 5px 10px; font-size: 12px; border-radius: 4px; z-index: 100; pointer-events: none; }
         .controls-hint { font-size: 0.75em; color: #888; line-height: 1.6; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; }
     </style>
@@ -30,21 +24,15 @@
 <div id="sidebar">
     <h2>工業設計端末</h2>
     <div id="dynamic-tools"><p>読み込み中...</p></div>
-
     <div class="tool-group">
         <label>基本操作</label>
         <button class="tool-btn" onclick="setEraser()" id="btn-eraser">❌ 撤去モード</button>
         <button class="tool-btn" onclick="clearCanvas()" style="color:#ff6b6b">🗑 全消去</button>
     </div>
-    
     <div class="controls-hint">
-        <strong>【画面の移動】</strong><br>
-        ・左ドラッグ または<br>
-        ・マウス中ボタン(ホイール)押し込み<br>
-        <strong>【設置・削除】</strong><br>
-        ・右クリック<br>
-        <strong>【ズーム】</strong><br>
-        ・マウスホイール
+        <strong>【移動】</strong> 左ドラッグ / 中ボタン<br>
+        <strong>【設置/削除】</strong> 右クリック<br>
+        <strong>【ズーム】</strong> ホイール (30%-150%)
     </div>
 </div>
 
@@ -57,7 +45,6 @@
     const canvas = document.getElementById('gridCanvas');
     const ctx = canvas.getContext('2d');
     const mainArea = document.getElementById('main');
-    
     const baseGridSize = 30;
     const mapSize = 100;
     
@@ -66,7 +53,6 @@
     let offsetY = 0;
     let isDragging = false;
     let lastMousePos = { x: 0, y: 0 };
-
     let placedItems = [];
     let currentTool = null;
     let mouseGrid = { x: 0, y: 0 };
@@ -121,7 +107,7 @@
         ctx.lineWidth = 1 / scale;
         for(let i=0; i<=mapSize; i++) {
             ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, fullSize); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, i*baseGridSize); ctx.lineTo(fullSize, i*baseGridSize); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i*baseGridSize); ctx.lineTo(fullSize, i*baseGridSize, ctx.stroke());
         }
 
         placedItems.forEach(item => {
@@ -142,14 +128,11 @@
             ctx.fillStyle = occupied ? 'red' : currentTool.color;
             ctx.fillRect(mouseGrid.x*baseGridSize, mouseGrid.y*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
         }
-        
         ctx.globalAlpha = 1.0;
         requestAnimationFrame(draw);
     }
 
-    // --- 改良されたマウスイベント ---
     mainArea.addEventListener('mousedown', (e) => {
-        // 左クリック(0) または 中ボタン(1) でドラッグ開始
         if (e.button === 0 || e.button === 1) {
             isDragging = true;
             lastMousePos = { x: e.clientX, y: e.clientY };
@@ -161,13 +144,11 @@
         const rect = mainArea.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
-
         if (isDragging) {
             offsetX += e.clientX - lastMousePos.x;
             offsetY += e.clientY - lastMousePos.y;
             lastMousePos = { x: e.clientX, y: e.clientY };
         }
-
         const worldX = (mx - offsetX) / scale;
         const worldY = (my - offsetY) / scale;
         mouseGrid.x = Math.floor(worldX / baseGridSize);
@@ -175,12 +156,8 @@
         updateStatus();
     });
 
-    window.addEventListener('mouseup', () => { 
-        isDragging = false; 
-        mainArea.classList.remove('dragging');
-    });
+    window.addEventListener('mouseup', () => { isDragging = false; mainArea.classList.remove('dragging'); });
 
-    // 右クリックで設置・削除
     mainArea.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         if (currentTool && currentTool.id !== 'eraser') {
@@ -195,16 +172,16 @@
         e.preventDefault();
         const zoomSpeed = 0.12;
         const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
-        const newScale = Math.min(Math.max(0.15, scale + delta), 4);
-        
-        const rect = mainArea.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        offsetX -= (mx - offsetX) * (newScale / scale - 1);
-        offsetY -= (my - offsetY) * (newScale / scale - 1);
-        
-        scale = newScale;
-        updateStatus();
+        const newScale = Math.min(Math.max(0.3, scale + delta), 1.5);
+        if (newScale !== scale) {
+            const rect = mainArea.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            offsetX -= (mx - offsetX) * (newScale / scale - 1);
+            offsetY -= (my - offsetY) * (newScale / scale - 1);
+            scale = newScale;
+            updateStatus();
+        }
     }, { passive: false });
 
     function updateStatus() {
@@ -212,7 +189,6 @@
     }
 
     function clearCanvas() { if(confirm('全て消去しますか？')) placedItems = []; }
-
     loadConfig();
     draw();
 </script>
