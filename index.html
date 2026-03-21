@@ -301,4 +301,157 @@
         currentTool = config;
         renderButtons();
         const eraserBtn = document.getElementById('btn-eraser');
-        if(eraserBtn)
+        if(eraserBtn) eraserBtn.classList.remove('active');
+    }
+
+    function setEraser() {
+        currentTool = { id: 'eraser' };
+        renderButtons();
+        const eraserBtn = document.getElementById('btn-eraser');
+        if(eraserBtn) eraserBtn.classList.add('active');
+    }
+
+    function draw() {
+        const styles = getComputedStyle(document.body);
+        const gridColor = styles.getPropertyValue('--grid').trim();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+        
+        ctx.strokeStyle = gridColor; ctx.lineWidth = 1/scale;
+        for(let i=0; i<=mapSize; i++) {
+            ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapSize*baseGridSize); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i*baseGridSize); ctx.lineTo(mapSize*baseGridSize, i*baseGridSize); ctx.stroke();
+        }
+        placedItems.forEach(item => {
+            ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.3 : 0.8;
+            ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
+            if(item.range > 0) {
+                ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
+                ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
+                ctx.setLineDash([]);
+            }
+        });
+        if(currentTool && currentTool.id !== 'eraser' && !draggingItem) {
+            ctx.globalAlpha = 0.4;
+            const px = Math.min(mapSize - currentTool.w, mouseGrid.x);
+            const py = Math.min(mapSize - currentTool.h, mouseGrid.y);
+            ctx.fillStyle = isAreaOccupied(px, py, currentTool.w, currentTool.h) ? 'red' : currentTool.color;
+            ctx.fillRect(px*baseGridSize, py*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
+        }
+        requestAnimationFrame(draw);
+    }
+
+    function isAreaOccupied(x, y, w, h, ignoreItem = null) {
+        return placedItems.some(item => (item !== ignoreItem) && (x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y));
+    }
+
+    mainArea.addEventListener('mousedown', (e) => {
+        if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
+        if (e.button === 0) {
+            const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
+            if (currentTool && currentTool.id === 'eraser') { if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
+            } else if (target) { draggingItem = target; dragStartPos = { x: target.x, y: target.y }; mainArea.classList.add('dragging-item');
+            } else if (currentTool && currentTool.id !== 'eraser') {
+                const px = Math.min(mapSize - currentTool.w, mouseGrid.x);
+                const py = Math.min(mapSize - currentTool.h, mouseGrid.y);
+                if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { placedItems.push({ ...currentTool, x: px, y: py }); updateStats(); autoSave(); }
+            }
+        }
+        if (e.button === 2) { 
+            placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h)); 
+            updateStats(); autoSave(); 
+        }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        const rect = mainArea.getBoundingClientRect();
+        if (isDraggingMap) { offsetX += e.clientX - lastMousePos.x; offsetY += e.clientY - lastMousePos.y; lastMousePos = { x: e.clientX, y: e.clientY }; }
+        const worldX = (e.clientX - rect.left - offsetX) / scale; const worldY = (e.clientY - rect.top - offsetY) / scale;
+        mouseGrid.x = Math.max(0, Math.min(mapSize, Math.floor(worldX / baseGridSize)));
+        mouseGrid.y = Math.max(0, Math.min(mapSize, Math.floor(worldY / baseGridSize)));
+        updateStatus();
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (draggingItem) {
+            const px = Math.min(mapSize - draggingItem.w, mouseGrid.x);
+            const py = Math.min(mapSize - draggingItem.h, mouseGrid.y);
+            if (!isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem)) { draggingItem.x = px; draggingItem.y = py; }
+            else { draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; }
+            draggingItem = null; updateStats(); autoSave();
+        }
+        isDraggingMap = false; mainArea.classList.remove('dragging-map', 'dragging-item');
+    });
+
+    mainArea.addEventListener('contextmenu', e => e.preventDefault());
+    mainArea.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.05 : 0.05;
+        const newScale = Math.min(Math.max(0.25, scale + delta), 1.5);
+        if (newScale !== scale) {
+            const rect = mainArea.getBoundingClientRect();
+            const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+            offsetX -= (mx - offsetX) * (newScale / scale - 1);
+            offsetY -= (my - offsetY) * (newScale / scale - 1);
+            scale = newScale; updateStatus();
+        }
+    }, { passive: false });
+
+    function updateStatus() { 
+        const statusEl = document.getElementById('status');
+        if(statusEl) statusEl.innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; 
+    }
+    function clearCanvas() { if(confirm('配置したすべての設備を削除しますか？')) { placedItems = []; updateStats(); autoSave(); } }
+    function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
+    function autoLoad() { const saved = localStorage.getItem('endfield_save'); if (saved) try { placedItems = JSON.parse(saved); } catch (e) {} }
+
+    function downloadImage() {
+        if (placedItems.length === 0) return alert("設備がありません。");
+        const expCanvas = document.getElementById('exportCanvas');
+        const expCtx = expCanvas.getContext('2d');
+        const res = mapSize * baseGridSize;
+        expCanvas.width = res; expCanvas.height = res;
+        const styles = getComputedStyle(document.body);
+        expCtx.fillStyle = styles.getPropertyValue('--bg').trim();
+        expCtx.fillRect(0, 0, res, res);
+        expCtx.strokeStyle = styles.getPropertyValue('--grid').trim();
+        expCtx.lineWidth = 1;
+        for(let i=0; i<=mapSize; i++) {
+            expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, res); expCtx.stroke();
+            expCtx.beginPath(); expCtx.moveTo(0, i*baseGridSize); expCtx.lineTo(res, i*baseGridSize); expCtx.stroke();
+        }
+        placedItems.forEach(item => {
+            expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9;
+            expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
+        });
+        const link = document.createElement('a');
+        link.download = `endfield_plan.png`;
+        link.href = expCanvas.toDataURL('image/png');
+        link.click();
+    }
+
+    function exportData() {
+        const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
+        const dataArea = document.getElementById('data-text');
+        if(dataArea) {
+            dataArea.value = code;
+            alert("コードを書き出しました。");
+        }
+    }
+
+    function importData() {
+        const dataArea = document.getElementById('data-text');
+        if(!dataArea) return;
+        try {
+            const decoded = JSON.parse(decodeURIComponent(escape(atob(dataArea.value))));
+            if (confirm("読み込みますか？")) { placedItems = decoded; updateStats(); autoSave(); }
+        } catch (e) { alert("無効なコードです"); }
+    }
+    
+    window.addEventListener('resize', centerMap);
+    loadConfig(); draw();
+</script>
+</body>
+</html>
