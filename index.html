@@ -105,9 +105,18 @@
         const fullSize = mapSize * baseGridSize;
         ctx.strokeStyle = '#222';
         ctx.lineWidth = 1 / scale;
+
+        // グリッド描画（修正済み）
         for(let i=0; i<=mapSize; i++) {
-            ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, fullSize); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, i*baseGridSize); ctx.lineTo(fullSize, i*baseGridSize, ctx.stroke());
+            ctx.beginPath();
+            ctx.moveTo(i * baseGridSize, 0);
+            ctx.lineTo(i * baseGridSize, fullSize);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, i * baseGridSize);
+            ctx.lineTo(fullSize, i * baseGridSize);
+            ctx.stroke();
         }
 
         placedItems.forEach(item => {
@@ -128,6 +137,7 @@
             ctx.fillStyle = occupied ? 'red' : currentTool.color;
             ctx.fillRect(mouseGrid.x*baseGridSize, mouseGrid.y*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
         }
+        
         ctx.globalAlpha = 1.0;
         requestAnimationFrame(draw);
     }
