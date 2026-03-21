@@ -48,13 +48,13 @@
             background: var(--btn-idle); border: 1px solid var(--btn-border); 
             color: var(--text); cursor: pointer; text-align: left;
             transition: 0.2s; border-radius: 4px; 
-            font-size: 0.9em; display: flex; align-items: center; gap: 8px; 
+            font-size: 0.9em; display: block;
             opacity: 0.8; box-sizing: border-box;
         }
         .tool-btn:hover { background: rgba(255, 207, 0, 0.15); border-color: var(--accent); opacity: 1; }
         .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); opacity: 1; box-shadow: 0 0 10px rgba(255, 207, 0, 0.3); }
         
-        .action-btn { justify-content: flex-start; text-align: left; font-weight: bold; }
+        .action-btn { text-align: left; font-weight: bold; padding-left: 12px; }
         .save-btn { background: var(--success); color: white; border: none; margin-top: 8px !important; opacity: 1; }
         .save-btn:hover { background: #27ae60; }
 
@@ -92,16 +92,16 @@
 
     <div class="tool-group">
         <label>基本操作</label>
-        <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser"><span>❌</span> 削除モード</button>
-        <button class="tool-btn action-btn" onclick="clearCanvas()" style="color:var(--danger)"><span>🗑</span> すべて削除</button>
+        <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser">削除モード</button>
+        <button class="tool-btn action-btn" onclick="clearCanvas()" style="color:var(--danger)">すべて削除</button>
     </div>
 
     <div class="tool-group" id="save-area">
         <label>設計図コードの書き出し / 読み込み</label>
-        <button class="tool-btn action-btn" onclick="exportData()"><span>📤</span> コード書き出し</button>
-        <button class="tool-btn action-btn" onclick="importData()"><span>📥</span> コード読み込み</button>
+        <button class="tool-btn action-btn" onclick="exportData()">コード書き出し</button>
+        <button class="tool-btn action-btn" onclick="importData()">コード読み込み</button>
         <textarea id="data-text" placeholder="ここにコードを入力/出力"></textarea>
-        <button class="tool-btn action-btn save-btn" onclick="downloadImage()"><span>💾</span> 画像として保存 (PNG)</button>
+        <button class="tool-btn action-btn save-btn" onclick="downloadImage()">画像として保存 (PNG)</button>
         <div class="warning-text">⚠️ 履歴削除等でデータが消えるため、コードの書き出し保存を推奨。</div>
     </div>
 
@@ -118,7 +118,7 @@
         ・移動：マウスホイール押し込み<br>
         ・設置/移動：左クリック/ドラッグ<br>
         ・削除：右クリック<br>
-        ・ズーム：マウスホイール(25%~150%)
+        ・ズーム：ホイール(25%~150%)
     </div>
 </div>
 
@@ -289,7 +289,6 @@
         });
         if(currentTool && currentTool.id !== 'eraser' && !draggingItem) {
             ctx.globalAlpha = 0.4;
-            // プレビュー用の設置位置は最大99マス目まで
             const px = Math.min(mapSize - currentTool.w, mouseGrid.x);
             const py = Math.min(mapSize - currentTool.h, mouseGrid.y);
             const occupied = isAreaOccupied(px, py, currentTool.w, currentTool.h);
@@ -335,13 +334,9 @@
         const rect = mainArea.getBoundingClientRect();
         const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
         if (isDraggingMap) { offsetX += e.clientX - lastMousePos.x; offsetY += e.clientY - lastMousePos.y; lastMousePos = { x: e.clientX, y: e.clientY }; }
-        
         const worldX = (mx - offsetX) / scale; const worldY = (my - offsetY) / scale;
-        
-        // 座標計算：最大を100に制限
         mouseGrid.x = Math.max(0, Math.min(mapSize, Math.floor(worldX / baseGridSize)));
         mouseGrid.y = Math.max(0, Math.min(mapSize, Math.floor(worldY / baseGridSize)));
-        
         updateStatus();
     });
 
