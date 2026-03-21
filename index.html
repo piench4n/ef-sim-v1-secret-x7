@@ -93,7 +93,6 @@
         textarea { width: 100%; height: 60px; background: rgba(0,0,0,0.2); color: var(--accent); border: 1px solid rgba(128,128,128,0.3); font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
         .warning-text { font-size: 0.65em; color: var(--warning); margin-top: 8px; line-height: 1.4; border-top: 1px dashed rgba(128,128,128,0.3); padding-top: 8px; }
 
-        /* --- カスタムモーダル --- */
         #modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1000;
@@ -104,9 +103,7 @@
         }
         #modal-text { margin-bottom: 20px; font-size: 0.95em; line-height: 1.5; }
         .modal-btns { display: flex; gap: 10px; justify-content: center; }
-        .modal-btn { 
-            padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; min-width: 80px; 
-        }
+        .modal-btn { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; min-width: 80px; }
         .modal-confirm { background: var(--accent); color: #000; }
         .modal-cancel { background: var(--btn-idle); color: var(--text); border: 1px solid var(--btn-border); }
     </style>
@@ -123,7 +120,6 @@
         <div id="summary-panel">
             <div class="summary-item"><span>消費電力:</span> <span id="sum-power" class="val-stat">0</span></div>
         </div>
-        
         <div class="cat-container" id="category-filters">
             <button id="cat-all" class="cat-btn active" onclick="filterCategory('all')">すべて</button>
         </div>
@@ -205,17 +201,14 @@
     let allBuildings = [];
     let currentCategory = 'all';
 
-    // モーダル管理
     function showModal(text, isConfirm, onOk) {
         const overlay = document.getElementById('modal-overlay');
         const textEl = document.getElementById('modal-text');
         const okBtn = document.getElementById('modal-ok-btn');
         const cancelBtn = document.getElementById('modal-cancel-btn');
-
         textEl.innerText = text;
         overlay.style.display = 'flex';
         cancelBtn.style.display = isConfirm ? 'inline-block' : 'none';
-
         okBtn.onclick = () => { overlay.style.display = 'none'; onOk(); };
         cancelBtn.onclick = () => { overlay.style.display = 'none'; };
     }
@@ -236,16 +229,6 @@
         });
     }
 
-    function exportData() {
-        const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
-        const dataArea = document.getElementById('data-text');
-        if(dataArea) { 
-            dataArea.value = code; 
-            showModal('コードを書き出しました。コピーして保存してください。', false, () => {});
-        }
-    }
-
-    // --- 以下、既存のロジック ---
     function changeMapRatio(val) {
         const [w, h] = val.split(':').map(Number);
         mapW = w; mapH = h;
@@ -348,27 +331,60 @@
         ctx.scale(scale, scale);
         ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
         ctx.lineWidth = 1/scale;
+        
         for(let i=0; i<=mapW; i++) {
             ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke();
         }
         for(let j=0; j<=mapH; j++) {
             ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke();
         }
+
+        // プレビュー位置の計算（描画ループ内で共有）
+        const activePreview = draggingItem || (currentTool && currentTool.id !== 'eraser' ? currentTool : null);
+        const px = activePreview ? Math.min(mapW - activePreview.w, mouseGrid.x) : -100;
+        const py = activePreview ? Math.min(mapH - activePreview.h, mouseGrid.y) : -100;
+
         placedItems.forEach(item => {
-            ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.3 : 0.8;
+            ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.15 : 0.8;
             ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
-            if(item.range > 0) {
-                ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
-                ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
-                ctx.setLineDash([]);
+            
+            // --- 範囲ガイドのロジック ---
+            // 1. 本来の範囲表示（配置済みアイテム自身の範囲。ドラッグ中は隠す）
+            if(item.range > 0 && item !== draggingItem) {
+                let shouldShowRange = false;
+                
+                // ガイド発動条件：設置/移動中のアイテムがこのポールの範囲内に重なっているか？
+                if(activePreview) {
+                    const centerX = item.x + 0.5;
+                    const centerY = item.y + 0.5;
+                    // アイテムの矩形が範囲（正方形）に触れているか判定
+                    if (px < centerX + item.range && px + activePreview.w > centerX - item.range &&
+                        py < centerY + item.range && py + activePreview.h > centerY - item.range) {
+                        shouldShowRange = true;
+                    }
+                }
+
+                if(shouldShowRange) {
+                    ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
+                    ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
+                    ctx.setLineDash([]);
+                }
             }
         });
-        if(currentTool && currentTool.id !== 'eraser' && !draggingItem) {
-            ctx.globalAlpha = 0.4;
-            const px = Math.min(mapW - currentTool.w, mouseGrid.x);
-            const py = Math.min(mapH - currentTool.h, mouseGrid.y);
-            ctx.fillStyle = isAreaOccupied(px, py, currentTool.w, currentTool.h) ? 'red' : currentTool.color;
-            ctx.fillRect(px*baseGridSize, py*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
+
+        // プレビュー（ゴースト）の描画
+        if(activePreview) {
+            ctx.globalAlpha = 0.5;
+            const occupied = isAreaOccupied(px, py, activePreview.w, activePreview.h, draggingItem);
+            ctx.fillStyle = occupied ? 'red' : activePreview.color;
+            ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
+            
+            // 移動中デバイス自身の範囲は常に表示してガイドとする
+            if(activePreview.range > 0) {
+                ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
+                ctx.strokeRect((px-activePreview.range+0.5)*baseGridSize, (py-activePreview.range+0.5)*baseGridSize, (activePreview.range*2)*baseGridSize, (activePreview.range*2)*baseGridSize);
+                ctx.setLineDash([]);
+            }
         }
         requestAnimationFrame(draw);
     }
@@ -381,8 +397,10 @@
         if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
         if (e.button === 0) {
             const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
-            if (currentTool && currentTool.id === 'eraser') { if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
-            } else if (target) { draggingItem = target; dragStartPos = { x: target.x, y: target.y }; mainArea.classList.add('dragging-item');
+            if (currentTool && currentTool.id === 'eraser') {
+                if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
+            } else if (target) {
+                draggingItem = target; dragStartPos = { x: target.x, y: target.y }; mainArea.classList.add('dragging-item');
             } else if (currentTool && currentTool.id !== 'eraser') {
                 const px = Math.min(mapW - currentTool.w, mouseGrid.x);
                 const py = Math.min(mapH - currentTool.h, mouseGrid.y);
@@ -419,7 +437,7 @@
     mainArea.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.05 : 0.05;
-        const newScale = Math.min(Math.max(0.25, scale + delta), 1.5);
+        const newScale = Math.min(Math.max(0.1, scale + delta), 1.5);
         if (newScale !== scale) {
             const rect = mainArea.getBoundingClientRect();
             const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
@@ -451,6 +469,12 @@
         const link = document.createElement('a'); link.download = `endfield_plan.png`; link.href = expCanvas.toDataURL('image/png'); link.click();
     }
     
+    function exportData() {
+        const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
+        const dataArea = document.getElementById('data-text');
+        if(dataArea) { dataArea.value = code; showModal('コードを書き出しました。コピーして保存してください。', false, () => {}); }
+    }
+
     window.addEventListener('resize', centerMap);
     loadConfig(); draw();
 </script>
