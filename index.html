@@ -8,6 +8,7 @@
         :root { --bg: #1a1c1e; --panel: #2d2f31; --accent: #ffcf00; --text: #e0e0e0; --danger: #ff6b6b; --warning: #ffae00; --success: #2ecc71; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
         
+        /* サイドバー */
         #sidebar { 
             width: 280px; background: var(--panel); border-right: 2px solid #444; padding: 20px; 
             display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 100;
@@ -15,6 +16,7 @@
         }
         body.sidebar-closed #sidebar { transform: translateX(-280px); width: 0; padding: 0; border: none; }
 
+        /* サイドバー開閉ボタン */
         #toggle-sidebar {
             position: fixed; left: 280px; top: 10px; z-index: 110;
             background: var(--panel); border: 1px solid #444; color: var(--accent);
@@ -38,8 +40,15 @@
         #main.dragging-item { cursor: move; }
         canvas { display: block; }
         
-        .status-bar { position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 5px 10px; font-size: 12px; border-radius: 4px; z-index: 90; pointer-events: none; transition: left 0.3s ease; }
-        body:not(.sidebar-closed) .status-bar { left: 290px; }
+        /* ステータスバー位置調整（サイドバーの幅に合わせて動く） */
+        .status-bar { 
+            position: fixed; bottom: 10px; 
+            left: calc(280px + 20px); /* サイドバー幅 + 余白 */
+            background: rgba(0,0,0,0.7); padding: 5px 12px; font-size: 12px; border-radius: 4px; 
+            z-index: 90; pointer-events: none; transition: left 0.3s ease; 
+            border: 1px solid #444; color: #fff;
+        }
+        body.sidebar-closed .status-bar { left: 20px; }
 
         .controls-hint { font-size: 0.7em; color: #888; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; }
         textarea { width: 100%; height: 60px; background: #111; color: #0f0; border: 1px solid #444; font-family: monospace; font-size: 10px; resize: none; margin-top: 5px; padding: 5px; box-sizing: border-box; }
@@ -62,7 +71,7 @@
     </div>
 
     <div class="tool-group" id="save-area">
-        <label>設計図の保存 / 読込</label>
+        <label>設計図の保存 / 読み込み</label>
         <button class="tool-btn action-btn" onclick="exportData()">📤 コードを書き出す</button>
         <button class="tool-btn action-btn" onclick="importData()">📥 コードから読み込む</button>
         <textarea id="data-text" placeholder="ここに設計図コードが表示されます"></textarea>
@@ -87,7 +96,7 @@
 
 <div id="main">
     <canvas id="gridCanvas"></canvas>
-    <div class="status-bar" id="status">座標: 0, 0 | ズーム: 100%</div>
+    <div class="status-bar" id="status">座標: 0, 0 | ズーム: 20%</div>
 </div>
 
 <canvas id="exportCanvas" style="display:none;"></canvas>
@@ -99,7 +108,6 @@
     const baseGridSize = 30;
     const mapSize = 100;
     
-    // 最小倍率を0.2 (20%) に設定
     let scale = 0.2; 
     let offsetX = 0;
     let offsetY = 0;
@@ -114,7 +122,6 @@
     canvas.width = mapSize * baseGridSize;
     canvas.height = mapSize * baseGridSize;
 
-    // 初期配置を画面中央に寄せる関数
     function centerMap() {
         const rect = mainArea.getBoundingClientRect();
         const mapPxSize = mapSize * baseGridSize * scale;
@@ -127,7 +134,6 @@
         document.body.classList.toggle('sidebar-closed');
         const btn = document.getElementById('toggle-sidebar');
         btn.innerText = document.body.classList.contains('sidebar-closed') ? '▶' : '◀';
-        // サイドバー開閉後に再計算
         setTimeout(centerMap, 310);
     }
 
@@ -185,7 +191,7 @@
             const data = await response.json();
             renderButtons(data.buildings); 
             autoLoad();
-            centerMap(); // 読み込み完了時に中央寄せ
+            centerMap();
         } catch (err) { document.getElementById('dynamic-tools').innerHTML = "JSONエラー"; }
     }
 
@@ -295,7 +301,6 @@
     mainArea.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.08 : 0.08;
-        // 最小倍率を0.2に制限
         const newScale = Math.min(Math.max(0.2, scale + delta), 1.5);
         if (newScale !== scale) {
             const rect = mainArea.getBoundingClientRect();
@@ -309,9 +314,7 @@
     function updateStatus() { document.getElementById('status').innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; }
     function clearCanvas() { if(confirm('全て消去しますか？')) { placedItems = []; autoSave(); } }
     
-    // ウィンドウサイズ変更時に中央寄せを維持
     window.addEventListener('resize', centerMap);
-
     loadConfig(); draw();
 </script>
 </body>
