@@ -141,8 +141,9 @@
         <label>基本操作</label>
         <div class="grid-2">
             <button class="tool-btn action-btn active" onclick="setMoveMode()" id="btn-move">移動モード</button>
+            <button class="tool-btn action-btn" onclick="setMultiMode()" id="btn-multi">一括操作</button>
             <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser">削除モード</button>
-            <button class="tool-btn action-btn full-width" onclick="confirmClear()" style="color:var(--danger)">すべて削除</button>
+            <button class="tool-btn action-btn" onclick="confirmClear()" style="color:var(--danger)">すべて削除</button>
         </div>
     </div>
 
@@ -158,12 +159,12 @@
     </div>
     
     <div class="controls-hint">
-        <strong>【画面移動】</strong>ホイール押し込み<br>
-        <strong>【設置/移動】</strong>左クリック/ドラッグ<br>
-        <strong>【削除】</strong>右クリック<br>
-        <strong>【単体回転】</strong>移動/設置中に <strong>R</strong> キー<br>
-        <strong>【全体回転】</strong><strong>Ctrl + R</strong> キー<br>
-        <strong>【ズーム】</strong>ホイール(10%~150%)
+        <strong>【移動/設置】</strong>左ドラッグ / <strong>R</strong>で回転<br>
+        <strong>【一括操作】</strong>範囲選択 or 個別選択<br>
+        <strong>【コピー】</strong><strong>Ctrl + C</strong> (選択中のみ有効)<br>
+        <strong>【ペースト】</strong><strong>Ctrl + V</strong> (最後にコピーしたグループ)<br>
+        <strong>【全体回転】</strong><strong>Ctrl + R</strong><br>
+        <strong>【画面移動】</strong>中ボタンドラッグ
     </div>
 </div>
 
@@ -200,18 +201,23 @@
     let dragStartPos = { x: 0, y: 0 };
     let lastMousePos = { x: 0, y: 0 };
     let placedItems = [];
-    let currentTool = null;
+    let currentTool = null; 
     let mouseGrid = { x: 0, y: 0 };
     let allBuildings = [];
     let currentCategory = 'all';
+
+    let selectedItems = [];
+    let selectionBox = null;
+    let clipboard = null;
+    let isDraggingSelection = false;
+    let dragOffset = { x: 0, y: 0 };
 
     function showModal(text, isConfirm, onOk) {
         const overlay = document.getElementById('modal-overlay');
         const textEl = document.getElementById('modal-text');
         const okBtn = document.getElementById('modal-ok-btn');
         const cancelBtn = document.getElementById('modal-cancel-btn');
-        textEl.innerText = text;
-        overlay.style.display = 'flex';
+        textEl.innerText = text; overlay.style.display = 'flex';
         cancelBtn.style.display = isConfirm ? 'inline-block' : 'none';
         okBtn.onclick = () => { overlay.style.display = 'none'; if(onOk) onOk(); };
         cancelBtn.onclick = () => { overlay.style.display = 'none'; };
@@ -219,7 +225,7 @@
 
     function confirmClear() {
         showModal('配置したすべての設備を削除しますか？', true, () => {
-            placedItems = []; updateStats(); autoSave();
+            placedItems = []; selectedItems = []; updateStats(); autoSave();
         });
     }
 
@@ -229,286 +235,96 @@
         showModal('設計図を読み込みますか？現在の配置は上書きされます。', true, () => {
             try {
                 const decoded = JSON.parse(decodeURIComponent(escape(atob(dataArea.value))));
-                placedItems = decoded; updateStats(); autoSave();
+                placedItems = decoded; selectedItems = []; updateStats(); autoSave();
             } catch (e) { showModal('無効なコードです', false); }
         });
     }
 
-    function changeMapRatio(val) {
-        const [w, h] = val.split(':').map(Number);
-        mapW = w; mapH = h;
-        canvas.width = mapW * baseGridSize;
-        canvas.height = mapH * baseGridSize;
-        centerMap();
-    }
-
-    function centerMap() {
-        const rect = mainArea.getBoundingClientRect();
-        offsetX = (rect.width - mapW * baseGridSize * scale) / 2;
-        offsetY = (rect.height - mapH * baseGridSize * scale) / 2;
-        updateStatus();
-    }
-
-    function toggleSidebar() {
-        document.body.classList.toggle('sidebar-closed');
-        const btn = document.getElementById('toggle-sidebar');
-        btn.innerText = document.body.classList.contains('sidebar-closed') ? '▶' : '◀';
-        setTimeout(centerMap, 310);
-    }
-
-    function updateStats() {
-        let power = 0;
-        const counts = {};
-        placedItems.forEach(item => {
-            if(item.power < 0) power += item.power;
-            counts[item.id] = (counts[item.id] || 0) + 1;
-        });
-        const pEl = document.getElementById('sum-power');
-        if(pEl) pEl.innerText = Math.abs(power);
-        if(allBuildings) {
-            allBuildings.forEach(b => {
-                const badge = document.getElementById(`count-${b.id}`);
-                if(badge) badge.innerText = counts[b.id] || 0;
-            });
-        }
-    }
-
-    function filterCategory(cat) {
-        currentCategory = cat;
-        document.querySelectorAll('.cat-btn').forEach(btn => {
-            const btnLabel = (cat === 'all') ? 'すべて' : cat;
-            btn.classList.toggle('active', btn.innerText === btnLabel);
-        });
-        renderButtons();
-    }
-
-    async function loadConfig() {
-        try {
-            const response = await fetch('data.json?t=' + new Date().getTime());
-            const data = await response.json();
-            allBuildings = data.buildings || [];
-            const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
-            const catContainer = document.getElementById('category-filters');
-            cats.forEach(c => {
-                const btn = document.createElement('button');
-                btn.className = 'cat-btn';
-                btn.innerText = c;
-                btn.onclick = () => filterCategory(c);
-                catContainer.appendChild(btn);
-            });
-            changeMapRatio("40:40"); renderButtons(); autoLoad(); updateStats();
-        } catch (err) { document.getElementById('buildings-container').innerHTML = "JSON読み込みエラー"; }
-    }
-
-    function renderButtons() {
-        const container = document.getElementById('buildings-container');
-        if(!container) return;
-        container.innerHTML = '';
-        const filtered = allBuildings.filter(b => currentCategory === 'all' || b.category === currentCategory);
-        filtered.forEach(b => {
-            const btn = document.createElement('button');
-            btn.className = 'tool-btn' + (currentTool && currentTool.id === b.id ? ' active' : '');
-            btn.id = 'btn-' + b.id;
-            btn.innerHTML = `<span>${b.name}</span><span class="count-badge" id="count-${b.id}">0</span>`; 
-            btn.setAttribute('data-size', `${b.w}×${b.h}`);
-            btn.onclick = () => setTool(b);
-            container.appendChild(btn);
-        });
-        updateStats();
-    }
-
     function setTool(config) {
-        currentTool = JSON.parse(JSON.stringify(config));
-        currentTool.angle = 0; 
+        currentTool = JSON.parse(JSON.stringify(config)); currentTool.angle = 0;
+        selectedItems = []; updateActionBtns('btn-none');
+    }
+    function setEraser() { currentTool = { id: 'eraser' }; selectedItems = []; updateActionBtns('btn-eraser'); }
+    function setMoveMode() { currentTool = null; selectedItems = []; updateActionBtns('btn-move'); }
+    function setMultiMode() { currentTool = { id: 'multi' }; updateActionBtns('btn-multi'); }
+
+    function updateActionBtns(id) {
+        document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
+        const active = document.getElementById(id); if (active) active.classList.add('active');
         renderButtons();
-        document.getElementById('btn-eraser').classList.remove('active');
-        document.getElementById('btn-move').classList.remove('active');
     }
 
-    function setEraser() {
-        currentTool = { id: 'eraser' }; renderButtons();
-        document.getElementById('btn-eraser').classList.add('active');
-        document.getElementById('btn-move').classList.remove('active');
+    function copySelection() {
+        if (selectedItems.length === 0) return;
+        const minX = Math.min(...selectedItems.map(i => i.x));
+        const minY = Math.min(...selectedItems.map(i => i.y));
+        clipboard = selectedItems.map(item => ({
+            ...JSON.parse(JSON.stringify(item)),
+            offsetX: item.x - minX,
+            offsetY: item.y - minY
+        }));
     }
-
-    function setMoveMode() {
-        currentTool = null; renderButtons();
-        document.getElementById('btn-eraser').classList.remove('active');
-        document.getElementById('btn-move').classList.add('active');
-    }
+    function startPaste() { if (clipboard) { currentTool = { id: 'paste' }; selectedItems = []; updateActionBtns('btn-none'); } }
 
     function rotateItem(item) {
         if (!item) return;
         const temp = item.w; item.w = item.h; item.h = temp;
         item.angle = ((item.angle || 0) + 1) % 4;
     }
-
     function rotateMap() {
         placedItems.forEach(item => {
             const oldX = item.x; const oldY = item.y; const oldW = item.w; const oldH = item.h;
-            item.x = mapH - oldY - oldH;
-            item.y = oldX;
-            item.w = oldH;
-            item.h = oldW;
+            item.x = mapH - oldY - oldH; item.y = oldX; item.w = oldH; item.h = oldW;
             item.angle = ((item.angle || 0) + 1) % 4;
         });
-        if (mapW !== mapH) {
-            const selector = document.getElementById('map-ratio');
-            const reversedRatio = selector.value.split(':').reverse().join(':');
-            for (let i = 0; i < selector.options.length; i++) {
-                if (selector.options[i].value === reversedRatio) {
-                    selector.value = reversedRatio; changeMapRatio(reversedRatio); break;
-                }
-            }
-        }
         updateStats(); autoSave();
     }
 
     window.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
-        if (e.ctrlKey && key === 'r') { e.preventDefault(); if (!draggingItem) rotateMap(); return; }
+        if (e.ctrlKey && key === 'r') { e.preventDefault(); rotateMap(); return; }
+        if (e.ctrlKey && key === 'c') { copySelection(); return; }
+        if (e.ctrlKey && key === 'v') { startPaste(); return; }
         if (key === 'r') {
             if (draggingItem) rotateItem(draggingItem);
-            else if (currentTool && currentTool.id !== 'eraser') rotateItem(currentTool);
+            else if (currentTool && !['eraser','multi','paste'].includes(currentTool.id)) rotateItem(currentTool);
         }
+        if (key === 'escape') setMoveMode();
     });
-
-    // --- 修正：ラベルのリサイズ機能と強調版方位▲の描画 ---
-    function drawLabel(context, text, x, y, itemW, itemH, angle = 0) {
-        const pxW = itemW * baseGridSize;
-        const pxH = itemH * baseGridSize;
-        const padding = 2;
-        
-        // 1. 方位マーカー（▲）の描画 - 強調版
-        context.save();
-        context.translate(x, y);
-        context.rotate(angle * Math.PI / 2);
-        
-        // アウトライン（黒縁）
-        context.strokeStyle = "rgba(0, 0, 0, 0.8)";
-        context.lineWidth = 2;
-        context.lineJoin = "round";
-        const triSize = Math.min(7, pxW/3.5);
-        const topY = -pxH/2 + 2;
-        
-        const drawTri = () => {
-            context.beginPath();
-            context.moveTo(0, topY);
-            context.lineTo(-triSize, topY + triSize * 1.2);
-            context.lineTo(triSize, topY + triSize * 1.2);
-            context.closePath();
-        };
-
-        drawTri();
-        context.stroke(); // 縁取り
-        context.fillStyle = "#ffcf00"; // 鮮やかな黄色
-        context.fill(); // 中身
-        context.restore();
-
-        // 2. テキスト処理
-        let fontSize = (itemW === 1 || itemH === 1) ? 11 : 13;
-        context.font = `bold ${fontSize}px sans-serif`;
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        
-        const maxAvailableW = pxW - 4;
-        let displayName = text;
-
-        if (context.measureText(displayName).width > maxAvailableW) {
-            let shortName = text[0] + "...";
-            if (context.measureText(shortName).width <= maxAvailableW) {
-                displayName = shortName;
-                for (let i = 2; i < text.length; i++) {
-                    let testName = text.substring(0, i) + "...";
-                    if (context.measureText(testName).width <= maxAvailableW) displayName = testName;
-                    else break;
-                }
-            } else displayName = text[0];
-        }
-        
-        context.fillStyle = "rgba(0, 0, 0, 0.85)";
-        context.fillText(displayName, x + 0.5, y + 0.5);
-        context.fillStyle = "#fff";
-        context.fillText(displayName, x, y);
-    }
-
-    function draw() {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.translate(offsetX, offsetY);
-        ctx.scale(scale, scale);
-        ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
-        ctx.lineWidth = 1/scale;
-        
-        for(let i=0; i<=mapW; i++) { ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke(); }
-        for(let j=0; j<=mapH; j++) { ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke(); }
-
-        const activePreview = draggingItem || (currentTool && currentTool.id !== 'eraser' ? currentTool : null);
-        const px = activePreview ? Math.min(mapW - activePreview.w, mouseGrid.x) : -100;
-        const py = activePreview ? Math.min(mapH - activePreview.h, mouseGrid.y) : -100;
-
-        placedItems.forEach(item => {
-            ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem) ? 0.15 : 0.8;
-            ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
-            if (item !== draggingItem) {
-                ctx.globalAlpha = 1.0;
-                drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
-            }
-            if(item.range > 0 && item !== draggingItem) {
-                let show = false;
-                if(activePreview) {
-                    const cx = item.x + 0.5; const cy = item.y + 0.5;
-                    if (px < cx + item.range && px + activePreview.w > cx - item.range && py < cy + item.range && py + activePreview.h > cy - item.range) show = true;
-                }
-                if(show) {
-                    ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
-                    ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
-                    ctx.setLineDash([]);
-                }
-            }
-        });
-
-        if(activePreview) {
-            ctx.globalAlpha = 0.5;
-            const occupied = isAreaOccupied(px, py, activePreview.w, activePreview.h, draggingItem);
-            ctx.fillStyle = occupied ? 'red' : activePreview.color;
-            ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
-            ctx.globalAlpha = 1.0;
-            drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w, activePreview.h, activePreview.angle || 0);
-            if(activePreview.range > 0) {
-                ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
-                ctx.strokeRect((px-activePreview.range+0.5)*baseGridSize, (py-activePreview.range+0.5)*baseGridSize, (activePreview.range*2)*baseGridSize, (activePreview.range*2)*baseGridSize);
-                ctx.setLineDash([]);
-            }
-        }
-        requestAnimationFrame(draw);
-    }
-
-    function isAreaOccupied(x, y, w, h, ignoreItem = null) {
-        return placedItems.some(item => (item !== ignoreItem) && (x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y));
-    }
 
     mainArea.addEventListener('mousedown', (e) => {
         if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
-        if (e.button === 0) {
-            const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
-            if (currentTool && currentTool.id === 'eraser') {
-                if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
-            } else if (target) {
-                draggingItem = target; dragStartPos = { x: target.x, y: target.y }; mainArea.classList.add('dragging-item');
-            } else if (currentTool && currentTool.id !== 'eraser') {
-                const px = Math.min(mapW - currentTool.w, mouseGrid.x);
-                const py = Math.min(mapH - currentTool.h, mouseGrid.y);
-                if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { 
-                    const newItem = JSON.parse(JSON.stringify(currentTool));
-                    newItem.x = px; newItem.y = py;
-                    placedItems.push(newItem); updateStats(); autoSave(); 
-                }
-            }
+        if (e.button !== 0) return;
+        const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
+
+        if (currentTool && currentTool.id === 'eraser') {
+            if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
+            return;
         }
-        if (e.button === 2) { 
-            placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h)); 
-            updateStats(); autoSave(); 
+        if (currentTool && currentTool.id === 'paste') {
+            clipboard.forEach(cb => {
+                const newItem = JSON.parse(JSON.stringify(cb));
+                newItem.x = mouseGrid.x + cb.offsetX; newItem.y = mouseGrid.y + cb.offsetY;
+                placedItems.push(newItem);
+            });
+            updateStats(); autoSave(); return;
+        }
+        if (currentTool && currentTool.id === 'multi') {
+            if (target) {
+                if (selectedItems.includes(target)) { isDraggingSelection = true; dragOffset = { x: mouseGrid.x, y: mouseGrid.y }; }
+                else { if (!e.shiftKey) selectedItems = []; selectedItems.push(target); }
+            } else { selectionBox = { x1: mouseGrid.x, y1: mouseGrid.y, x2: mouseGrid.x, y2: mouseGrid.y }; }
+            return;
+        }
+        if (target) { draggingItem = target; dragStartPos = { x: target.x, y: target.y }; }
+        else if (currentTool && !['multi','eraser','paste'].includes(currentTool.id)) {
+            const px = Math.min(mapW - currentTool.w, mouseGrid.x);
+            const py = Math.min(mapH - currentTool.h, mouseGrid.y);
+            if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) {
+                const newItem = JSON.parse(JSON.stringify(currentTool));
+                newItem.x = px; newItem.y = py;
+                placedItems.push(newItem); updateStats(); autoSave();
+            }
         }
     });
 
@@ -516,68 +332,159 @@
         const rect = mainArea.getBoundingClientRect();
         if (isDraggingMap) { offsetX += e.clientX - lastMousePos.x; offsetY += e.clientY - lastMousePos.y; lastMousePos = { x: e.clientX, y: e.clientY }; }
         const worldX = (e.clientX - rect.left - offsetX) / scale; const worldY = (e.clientY - rect.top - offsetY) / scale;
-        mouseGrid.x = Math.max(0, Math.min(mapW, Math.floor(worldX / baseGridSize)));
-        mouseGrid.y = Math.max(0, Math.min(mapH, Math.floor(worldY / baseGridSize)));
-        updateStatus();
+        const newX = Math.max(0, Math.min(mapW, Math.floor(worldX / baseGridSize)));
+        const newY = Math.max(0, Math.min(mapH, Math.floor(worldY / baseGridSize)));
+
+        if (selectionBox) { selectionBox.x2 = newX; selectionBox.y2 = newY; }
+        else if (isDraggingSelection) {
+            const dx = newX - dragOffset.x; const dy = newY - dragOffset.y;
+            if (dx !== 0 || dy !== 0) { selectedItems.forEach(item => { item.x += dx; item.y += dy; }); dragOffset = { x: newX, y: newY }; }
+        }
+        mouseGrid.x = newX; mouseGrid.y = newY; updateStatus();
     });
 
     window.addEventListener('mouseup', () => {
+        if (selectionBox) {
+            const xMin = Math.min(selectionBox.x1, selectionBox.x2); const xMax = Math.max(selectionBox.x1, selectionBox.x2);
+            const yMin = Math.min(selectionBox.y1, selectionBox.y2); const yMax = Math.max(selectionBox.y1, selectionBox.y2);
+            selectedItems = placedItems.filter(item => item.x < xMax + 1 && item.x + item.w > xMin && item.y < yMax + 1 && item.y + item.h > yMin);
+            selectionBox = null;
+        }
         if (draggingItem) {
-            const px = Math.min(mapW - draggingItem.w, mouseGrid.x);
-            const py = Math.min(mapH - draggingItem.h, mouseGrid.y);
-            if (!isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem)) { draggingItem.x = px; draggingItem.y = py; }
-            else { draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; }
+            const px = Math.min(mapW - draggingItem.w, mouseGrid.x); const py = Math.min(mapH - draggingItem.h, mouseGrid.y);
+            if (isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem)) { draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; }
+            else { draggingItem.x = px; draggingItem.y = py; }
             draggingItem = null; updateStats(); autoSave();
         }
-        isDraggingMap = false; mainArea.classList.remove('dragging-map', 'dragging-item');
+        isDraggingSelection = false; isDraggingMap = false; mainArea.classList.remove('dragging-map', 'dragging-item');
     });
 
-    mainArea.addEventListener('contextmenu', e => e.preventDefault());
-    mainArea.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.05 : 0.05;
-        const newScale = Math.min(Math.max(0.1, scale + delta), 1.5);
-        if (newScale !== scale) {
-            const rect = mainArea.getBoundingClientRect();
-            const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
-            offsetX -= (mx - offsetX) * (newScale / scale - 1);
-            offsetY -= (my - offsetY) * (newScale / scale - 1);
-            scale = newScale; updateStatus();
-        }
-    }, { passive: false });
+    function drawLabel(context, text, x, y, itemW, itemH, angle = 0) {
+        const pxW = itemW * baseGridSize; const pxH = itemH * baseGridSize;
+        context.save(); context.translate(x, y); context.rotate(angle * Math.PI / 2);
+        context.strokeStyle = "rgba(0, 0, 0, 0.8)"; context.lineWidth = 2; context.lineJoin = "round";
+        const triSize = Math.min(7, pxW/3.5); const topY = -pxH/2 + 2;
+        context.beginPath(); context.moveTo(0, topY); context.lineTo(-triSize, topY + triSize * 1.2); context.lineTo(triSize, topY + triSize * 1.2); context.closePath();
+        context.stroke(); context.fillStyle = "#ffcf00"; context.fill(); context.restore();
 
-    function updateStatus() { 
-        const statusEl = document.getElementById('status');
-        if(statusEl) statusEl.innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; 
+        let fontSize = (itemW === 1 || itemH === 1) ? 11 : 13;
+        context.font = `bold ${fontSize}px sans-serif`; context.textAlign = "center"; context.textBaseline = "middle";
+        const maxW = pxW - 4; let displayName = text;
+        if (context.measureText(displayName).width > maxW) {
+            let shortName = text[0] + "...";
+            if (context.measureText(shortName).width <= maxW) {
+                displayName = shortName;
+                for (let i = 2; i < text.length; i++) {
+                    let test = text.substring(0, i) + "...";
+                    if (context.measureText(test).width <= maxW) displayName = test; else break;
+                }
+            } else displayName = text[0];
+        }
+        context.fillStyle = "rgba(0, 0, 0, 0.85)"; context.fillText(displayName, x + 0.5, y + 0.5);
+        context.fillStyle = "#fff"; context.fillText(displayName, x, y);
     }
+
+    function draw() {
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.translate(offsetX, offsetY); ctx.scale(scale, scale);
+        ctx.strokeStyle = varProp('--grid'); ctx.lineWidth = 1/scale;
+        for(let i=0; i<=mapW; i++) { ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke(); }
+        for(let j=0; j<=mapH; j++) { ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke(); }
+
+        const activePreview = draggingItem || (currentTool && !['eraser','multi','paste'].includes(currentTool.id) ? currentTool : null);
+        const px = activePreview ? Math.min(mapW - activePreview.w, mouseGrid.x) : -100;
+        const py = activePreview ? Math.min(mapH - activePreview.h, mouseGrid.y) : -100;
+
+        placedItems.forEach(item => {
+            ctx.fillStyle = item.color; ctx.globalAlpha = (item === draggingItem || selectedItems.includes(item)) ? 0.3 : 0.8;
+            ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
+            if (selectedItems.includes(item)) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2/scale; ctx.strokeRect(item.x*baseGridSize, item.y*baseGridSize, item.w*baseGridSize, item.h*baseGridSize); }
+            if (item !== draggingItem) { ctx.globalAlpha = 1.0; drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0); }
+            if(item.range > 0 && !selectedItems.includes(item)) {
+                let show = false; if(activePreview) {
+                    const cx = item.x + 0.5; const cy = item.y + 0.5;
+                    if (px < cx + item.range && px + activePreview.w > cx - item.range && py < cy + item.range && py + activePreview.h > cy - item.range) show = true;
+                }
+                if(show) { ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]); ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize); ctx.setLineDash([]); }
+            }
+        });
+
+        if (selectionBox) {
+            ctx.strokeStyle = varProp('--accent'); ctx.lineWidth = 1/scale;
+            ctx.strokeRect(selectionBox.x1*baseGridSize, selectionBox.y1*baseGridSize, (selectionBox.x2-selectionBox.x1)*baseGridSize, (selectionBox.y2-selectionBox.y1)*baseGridSize);
+            ctx.fillStyle = "rgba(255, 207, 0, 0.1)"; ctx.fillRect(selectionBox.x1*baseGridSize, selectionBox.y1*baseGridSize, (selectionBox.x2-selectionBox.x1)*baseGridSize, (selectionBox.y2-selectionBox.y1)*baseGridSize);
+        }
+        if (currentTool && currentTool.id === 'paste' && clipboard) {
+            ctx.globalAlpha = 0.5; clipboard.forEach(cb => {
+                const curX = mouseGrid.x + cb.offsetX; const curY = mouseGrid.y + cb.offsetY;
+                ctx.fillStyle = isAreaOccupied(curX, curY, cb.w, cb.h) ? "red" : cb.color;
+                ctx.fillRect(curX*baseGridSize, curY*baseGridSize, cb.w*baseGridSize, cb.h*baseGridSize);
+            });
+        }
+        if(activePreview) {
+            ctx.globalAlpha = 0.5; const occupied = isAreaOccupied(px, py, activePreview.w, activePreview.h, draggingItem);
+            ctx.fillStyle = occupied ? 'red' : activePreview.color; ctx.fillRect(px*baseGridSize, py*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
+            ctx.globalAlpha = 1.0; drawLabel(ctx, activePreview.name, (px + activePreview.w/2)*baseGridSize, (py + activePreview.h/2)*baseGridSize, activePreview.w, activePreview.h, activePreview.angle || 0);
+        }
+        requestAnimationFrame(draw);
+    }
+
+    function varProp(name) { return getComputedStyle(document.body).getPropertyValue(name).trim(); }
+    function isAreaOccupied(x, y, w, h, ignore = null) { return placedItems.some(i => i !== ignore && x < i.x + i.w && x + w > i.x && y < i.y + i.h && y + h > i.y); }
+    function updateStatus() { document.getElementById('status').innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; }
     function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
     function autoLoad() { const saved = localStorage.getItem('endfield_save'); if (saved) try { placedItems = JSON.parse(saved); } catch (e) {} }
+    function changeMapRatio(val) { const [w, h] = val.split(':').map(Number); mapW = w; mapH = h; canvas.width = mapW * baseGridSize; canvas.height = mapH * baseGridSize; centerMap(); }
+    function centerMap() { const rect = mainArea.getBoundingClientRect(); offsetX = (rect.width - mapW * baseGridSize * scale) / 2; offsetY = (rect.height - mapH * baseGridSize * scale) / 2; updateStatus(); }
+    function toggleSidebar() { document.body.classList.toggle('sidebar-closed'); document.getElementById('toggle-sidebar').innerText = document.body.classList.contains('sidebar-closed') ? '▶' : '◀'; setTimeout(centerMap, 310); }
+
+    async function loadConfig() {
+        try {
+            const response = await fetch('data.json?t=' + new Date().getTime());
+            const data = await response.json(); allBuildings = data.buildings || [];
+            const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
+            const catContainer = document.getElementById('category-filters');
+            cats.forEach(c => { const btn = document.createElement('button'); btn.className = 'cat-btn'; btn.innerText = c; btn.onclick = () => filterCategory(c); catContainer.appendChild(btn); });
+            changeMapRatio("40:40"); renderButtons(); autoLoad(); updateStats();
+        } catch (err) { console.error(err); }
+    }
+
+    function renderButtons() {
+        const container = document.getElementById('buildings-container'); if(!container) return; container.innerHTML = '';
+        allBuildings.filter(b => currentCategory === 'all' || b.category === currentCategory).forEach(b => {
+            const btn = document.createElement('button'); btn.className = 'tool-btn' + (currentTool && currentTool.id === b.id ? ' active' : '');
+            btn.id = 'btn-' + b.id; btn.innerHTML = `<span>${b.name}</span><span class="count-badge" id="count-${b.id}">0</span>`; 
+            btn.setAttribute('data-size', `${b.w}×${b.h}`); btn.onclick = () => setTool(b); container.appendChild(btn);
+        });
+        updateStats();
+    }
 
     function downloadImage() {
         if (placedItems.length === 0) return showModal("設備がありません。", false);
-        const expCanvas = document.getElementById('exportCanvas');
-        const expCtx = expCanvas.getContext('2d');
+        const expCanvas = document.getElementById('exportCanvas'); const expCtx = expCanvas.getContext('2d');
         expCanvas.width = mapW * baseGridSize; expCanvas.height = mapH * baseGridSize;
-        expCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg').trim();
-        expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
-        expCtx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid').trim();
-        expCtx.lineWidth = 1;
+        expCtx.fillStyle = varProp('--bg'); expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
+        expCtx.strokeStyle = varProp('--grid'); expCtx.lineWidth = 1;
         for(let i=0; i<=mapW; i++) { expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, expCanvas.height); expCtx.stroke(); }
         for(let j=0; j<=mapH; j++) { expCtx.beginPath(); expCtx.moveTo(0, j*baseGridSize); expCtx.lineTo(expCanvas.width, j*baseGridSize); expCtx.stroke(); }
         placedItems.forEach(item => { 
-            expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9; 
-            expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2); 
-            expCtx.globalAlpha = 1.0;
-            drawLabel(expCtx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
+            expCtx.fillStyle = item.color; expCtx.globalAlpha = 0.9; expCtx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2); 
+            expCtx.globalAlpha = 1.0; drawLabel(expCtx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
         });
         const link = document.createElement('a'); link.download = `endfield_plan.png`; link.href = expCanvas.toDataURL('image/png'); link.click();
     }
-    
+
     function exportData() {
         const code = btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))));
-        const dataArea = document.getElementById('data-text');
-        if(dataArea) { dataArea.value = code; showModal('コードを書き出しました。コピーして保存してください。', false); }
+        const dataArea = document.getElementById('data-text'); if(dataArea) { dataArea.value = code; showModal('コードを書き出しました。', false); }
     }
+
+    mainArea.addEventListener('contextmenu', e => e.preventDefault());
+    mainArea.addEventListener('wheel', (e) => { 
+        e.preventDefault(); const delta = e.deltaY > 0 ? -0.05 : 0.05; const newScale = Math.min(Math.max(0.1, scale + delta), 1.5);
+        if (newScale !== scale) { const rect = mainArea.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+            offsetX -= (mx - offsetX) * (newScale / scale - 1); offsetY -= (my - offsetY) * (newScale / scale - 1); scale = newScale; updateStatus(); }
+    }, { passive: false });
 
     window.addEventListener('resize', centerMap);
     loadConfig(); draw();
