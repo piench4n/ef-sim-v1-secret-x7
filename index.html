@@ -6,66 +6,58 @@
     <title>Endfield Industrial Planner</title>
     <style>
         :root { 
-            /* 共通カラー */
             --accent: #ffcf00; --danger: #ff4444; --warning: #ffae00; --success: #2ecc71;
-            /* ダーク */
             --bg: #121416; --panel: #1c1f23; --text: #ffffff; --grid: #2a2d30; 
-            --btn-idle: rgba(255, 255, 255, 0.05); /* 未選択時の色 */
+            --btn-idle: rgba(255, 255, 255, 0.05);
             --btn-border: rgba(128, 128, 128, 0.3);
+            --sidebar-w: 280px;
         }
         
-        /* ホワイト */
         body.theme-white {
             --bg: #f5f5f5; --panel: #ffffff; --text: #1a1c1e; --grid: #d0d0d0; 
-            --btn-idle: rgba(0, 0, 0, 0.03); /* 未選択時の色 */
+            --btn-idle: rgba(0, 0, 0, 0.03);
             --btn-border: rgba(0, 0, 0, 0.1);
         }
 
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
         
+        /* サイドバー：物理的な幅の制御 */
         #sidebar { 
-            width: 280px; background: var(--panel); border-right: 2px solid rgba(128,128,128,0.2); padding: 20px; 
+            width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--panel); border-right: 2px solid rgba(128,128,128,0.2); padding: 20px; 
             display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 100;
-            transition: transform 0.3s ease, background 0.3s;
+            transition: margin-left 0.3s ease, opacity 0.3s ease;
             -ms-overflow-style: none; scrollbar-width: none;
+            box-sizing: border-box;
         }
         #sidebar::-webkit-scrollbar { display: none; }
-        body.sidebar-closed #sidebar { transform: translateX(-280px); width: 0; padding: 0; border: none; }
+        
+        /* 閉じている時は左に突き出す */
+        body.sidebar-closed #sidebar { margin-left: calc(var(--sidebar-w) * -1); opacity: 0; pointer-events: none; }
 
         #toggle-sidebar {
-            position: fixed; left: 280px; top: 10px; z-index: 110;
+            position: fixed; left: var(--sidebar-w); top: 10px; z-index: 110;
             background: var(--panel); border: 1px solid rgba(128,128,128,0.3); color: var(--accent);
             padding: 8px 12px; cursor: pointer; border-radius: 0 4px 4px 0;
-            transition: left 0.3s ease, background 0.3s; font-weight: bold;
+            transition: left 0.3s ease; font-weight: bold;
         }
         body.sidebar-closed #toggle-sidebar { left: 0; }
 
-        .tool-group { border: 1px solid var(--btn-border); padding: 10px; border-radius: 4px; margin-bottom: 5px; }
+        .tool-group { border: 1px solid var(--btn-border); padding: 10px; border-radius: 4px; margin-bottom: 5px; text-align: left; }
         label { font-size: 0.8em; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
         h2 { margin-top: 0; font-size: 1.1em; border-bottom: 2px solid var(--accent); padding-bottom: 5px; white-space: nowrap; color: var(--accent); }
         
-        /* --- ボタンのデザイン調整 --- */
         .tool-btn { 
             width: 100%; padding: 10px; margin: 4px 0; 
-            background: var(--btn-idle); /* 通常時は背景に馴染ませる */
-            border: 1px solid var(--btn-border); 
-            color: var(--text); cursor: pointer; text-align: left; transition: 0.2s; border-radius: 4px; 
+            background: var(--btn-idle); border: 1px solid var(--btn-border); 
+            color: var(--text); cursor: pointer; text-align: left;
+            transition: 0.2s; border-radius: 4px; 
             font-size: 0.9em; display: flex; align-items: center; gap: 8px; 
-            opacity: 0.8;
+            opacity: 0.8; box-sizing: border-box;
         }
-        .tool-btn:hover { 
-            background: rgba(255, 207, 0, 0.15); 
-            border-color: var(--accent);
-            opacity: 1;
-        }
-        .tool-btn.active { 
-            background: var(--accent); /* 選択時はイエロー */
-            color: #000; font-weight: bold; border-color: var(--accent); 
-            opacity: 1;
-            box-shadow: 0 0 10px rgba(255, 207, 0, 0.3);
-        }
+        .tool-btn:hover { background: rgba(255, 207, 0, 0.15); border-color: var(--accent); opacity: 1; }
+        .tool-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); opacity: 1; box-shadow: 0 0 10px rgba(255, 207, 0, 0.3); }
         
-        .action-btn { justify-content: center; text-align: center; font-weight: bold; }
+        .action-btn { justify-content: flex-start; text-align: left; font-weight: bold; }
         .save-btn { background: var(--success); color: white; border: none; margin-top: 8px !important; opacity: 1; }
         .save-btn:hover { background: #27ae60; }
 
@@ -76,11 +68,17 @@
         #main.dragging-item { cursor: move; }
         canvas { display: block; }
         
+        /* ステータスバー：常にサイドバーの「外側」に配置されるよう計算 */
         .status-bar { 
-            position: fixed; bottom: 10px; left: calc(280px + 20px); 
-            background: rgba(0,0,0,0.8); padding: 5px 12px; font-size: 12px; border-radius: 4px; 
-            z-index: 90; pointer-events: none; transition: left 0.3s ease; 
+            position: fixed; bottom: 15px; 
+            /* サイドバーが開いている時はその幅+余白、閉じている時は最小余白 */
+            left: calc(var(--sidebar-w) + 20px);
+            background: rgba(0,0,0,0.8); padding: 6px 14px; font-size: 12px; border-radius: 4px; 
+            z-index: 90; pointer-events: none; 
+            transition: left 0.3s ease; 
             border: 1px solid var(--accent); color: var(--accent);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            white-space: nowrap;
         }
         body.sidebar-closed .status-bar { left: 20px; }
 
@@ -95,26 +93,21 @@
 
 <div id="sidebar">
     <h2>工業設計端末</h2>
-    
-    <div id="dynamic-tools"><label>設備読み込み中...</label></div>
+    <div id="dynamic-tools"><label>設備一覧</label></div>
 
     <div class="tool-group">
         <label>基本操作</label>
-        <button class="tool-btn" onclick="setEraser()" id="btn-eraser"><span>❌</span> 撤去モード</button>
+        <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser"><span>❌</span> 撤去モード</button>
         <button class="tool-btn action-btn" onclick="clearCanvas()" style="color:var(--danger)"><span>🗑</span> 全消去</button>
     </div>
 
     <div class="tool-group" id="save-area">
         <label>設計図の保存 / 読み込み</label>
-        <button class="tool-btn action-btn" onclick="exportData()">📤 コードを書き出す</button>
-        <button class="tool-btn action-btn" onclick="importData()">📥 コードから読み込む</button>
-        <textarea id="data-text" placeholder="ここに設計図コードが表示されます"></textarea>
+        <button class="tool-btn action-btn" onclick="exportData()"><span>📤</span> コードを書き出す</button>
+        <button class="tool-btn action-btn" onclick="importData()"><span>📥</span> コードから読み込む</button>
+        <textarea id="data-text" placeholder="ここにコードを入力/出力"></textarea>
         <button class="tool-btn action-btn save-btn" onclick="downloadImage()"><span>💾</span> 画像として保存 (PNG)</button>
-        <div class="warning-text">
-            ⚠️ <strong>データ消失の注意：</strong><br>
-            ・ブラウザの履歴/キャッシュ削除で消えます。<br>
-            ・大切な設計図は「書き出し」て保存を推奨。
-        </div>
+        <div class="warning-text">⚠️ 履歴削除等でデータが消えるため、コードの書き出し保存を推奨。</div>
     </div>
 
     <div class="tool-group">
@@ -170,13 +163,8 @@
     function loadTheme() {
         const savedTheme = localStorage.getItem('endfield_theme') || 'default';
         const selector = document.getElementById('theme-selector');
-        if (savedTheme !== 'default' && savedTheme !== 'white') {
-            changeTheme('default');
-            selector.value = 'default';
-        } else {
-            selector.value = savedTheme;
-            changeTheme(savedTheme);
-        }
+        selector.value = (savedTheme === 'default' || savedTheme === 'white') ? savedTheme : 'default';
+        changeTheme(selector.value);
     }
 
     function centerMap() {
@@ -191,6 +179,7 @@
         document.body.classList.toggle('sidebar-closed');
         const btn = document.getElementById('toggle-sidebar');
         btn.innerText = document.body.classList.contains('sidebar-closed') ? '▶' : '◀';
+        // 物理的な幅の変化が終わるのを待ってから中央寄せ
         setTimeout(centerMap, 310);
     }
 
