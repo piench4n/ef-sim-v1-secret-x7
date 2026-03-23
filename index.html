@@ -228,22 +228,18 @@
             <label>基本操作</label>
             <div class="grid-2">
                 <button class="tool-btn action-btn active" onclick="setMoveMode()" id="btn-move">個別操作</button>
-                <button class="tool-btn action-btn" onclick="setEraser()" id="btn-eraser">個別削除</button>
-                <button class="tool-btn action-btn full-width" onclick="confirmClear()" style="color:var(--danger)">一括削除</button>
+                <button class="tool-btn action-btn" onclick="confirmClear()" style="color:var(--danger)">一括削除</button>
             </div>
         </div>
 
         <div class="tool-group">
             <label>マップ設定</label>
-            <div class="grid-2">
-                <select id="map-ratio" onchange="changeMapRatio(this.value)">
-                    <option value="80:80">80 × 80</option>
-                    <option value="70:70">70 × 70</option>
-                    <option value="50:50">50 × 50</option>
-                    <option value="40:40">40 × 40</option>
-                </select>
-                <button class="tool-btn action-btn" onclick="rotateMap()">全体回転</button>
-            </div>
+            <select id="map-ratio" onchange="changeMapRatio(this.value)">
+                <option value="80:80">80 × 80</option>
+                <option value="70:70">70 × 70</option>
+                <option value="50:50">50 × 50</option>
+                <option value="40:40">40 × 40</option>
+            </select>
         </div>
     </div>
 
@@ -265,16 +261,17 @@
     <div class="controls-hint">
         <strong>【PC操作】</strong><br>
         画面移動：ホイール押し込み<br>
-        設置：サイドバーからドラッグ<br>
+        設置：サイドバー選択 + 左クリック<br>
+        回転：配置済みを左クリック<br>
         移動：配置済みをドラッグ<br>
         削除：右クリック<br>
-        単体回転：長押し+R<br>
-        全体回転：Ctrl+R<br>
         ズーム：ホイール<br>
         <strong>【スマホ操作】</strong><br>
         画面移動：1本指ドラッグ<br>
-        設置/移動：タップ/長押し後ドラッグ<br>
-        削除：タップ<br>
+        設置：サイドバー選択 + タップ<br>
+        回転：配置済みをタップ<br>
+        移動：長押し後ドラッグ<br>
+        削除：右クリック相当(環境による)<br>
         ズーム：2本指
     </div>
 </div>
@@ -316,7 +313,7 @@
     let isDraggingMap = false;
     let draggingItem = null;
     let dragStartPos = { x: 0, y: 0 };
-    let dragOffset = { x: 0, y: 0 }; // 指/マウスとアイテム左上の差分
+    let dragOffset = { x: 0, y: 0 }; 
     let lastMousePos = { x: 0, y: 0 };
     let placedItems = [];
     let currentTool = null;
@@ -332,6 +329,7 @@
     let isMovingItem = false;
     let touchStartPos = { x: 0, y: 0 };
     let touchStartRawPos = { x: 0, y: 0 };
+    let touchStartTime = 0;
 
     let isSelecting = false;
     let selectionStart = { x: 0, y: 0 };
@@ -443,14 +441,6 @@
             btn.id = 'btn-' + b.id;
             btn.innerHTML = `<span>${b.name}</span><span class="count-badge" id="count-${b.id}">0</span>`; 
             btn.setAttribute('data-size', `${b.w}×${b.h}`);
-            
-            // ドラッグ対応
-            btn.draggable = true;
-            btn.ondragstart = (e) => {
-                e.dataTransfer.setData('text/plain', b.id);
-                setTool(b);
-            };
-
             btn.onclick = () => setTool(b);
             container.appendChild(btn);
         });
@@ -459,29 +449,18 @@
 
     function setTool(config) {
         if (currentTool && currentTool.id === config.id) {
-            if (lastActiveMode === 'bulk') setMoveMode();
-            else if (lastActiveMode === 'eraser') setEraser();
-            else setMoveMode();
+            setMoveMode();
             return;
         }
         currentTool = JSON.parse(JSON.stringify(config));
         currentTool.angle = 0; 
         renderButtons();
-        document.getElementById('btn-eraser').classList.remove('active');
-        document.getElementById('btn-move').classList.remove('active');
-        selectedGroup = [];
-    }
-
-    function setEraser() {
-        currentTool = { id: 'eraser' }; lastActiveMode = 'eraser'; renderButtons();
-        document.getElementById('btn-eraser').classList.add('active');
         document.getElementById('btn-move').classList.remove('active');
         selectedGroup = [];
     }
 
     function setMoveMode() {
         currentTool = null; lastActiveMode = 'move'; renderButtons();
-        document.getElementById('btn-eraser').classList.remove('active');
         document.getElementById('btn-move').classList.add('active');
         selectedGroup = [];
     }
@@ -492,33 +471,11 @@
         item.angle = ((item.angle || 0) + 1) % 4;
     }
 
-    function rotateMap() {
-        placedItems.forEach(item => {
-            const oldX = item.x; const oldY = item.y; const oldW = item.w; const oldH = item.h;
-            item.x = mapH - oldY - oldH;
-            item.y = oldX;
-            item.w = oldH;
-            item.h = oldW;
-            item.angle = ((item.angle || 0) + 1) % 4;
-        });
-        if (mapW !== mapH) {
-            const selector = document.getElementById('map-ratio');
-            const reversedRatio = selector.value.split(':').reverse().join(':');
-            for (let i = 0; i < selector.options.length; i++) {
-                if (selector.options[i].value === reversedRatio) {
-                    selector.value = reversedRatio; changeMapRatio(reversedRatio); break;
-                }
-            }
-        }
-        updateStats(); autoSave();
-    }
-
     window.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
-        if (e.ctrlKey && key === 'r') { e.preventDefault(); if (!draggingItem) rotateMap(); return; }
         if (key === 'r') {
             if (draggingItem) rotateItem(draggingItem);
-            else if (currentTool && currentTool.id !== 'eraser') rotateItem(currentTool);
+            else if (currentTool) rotateItem(currentTool);
         }
     });
 
@@ -578,7 +535,7 @@
         for(let i=0; i<=mapW; i++) { ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke(); }
         for(let j=0; j<=mapH; j++) { ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke(); }
         
-        const activePreview = draggingItem || (currentTool && currentTool.id !== 'eraser' ? currentTool : null);
+        const activePreview = draggingItem || (currentTool ? currentTool : null);
         const px = (activePreview && !selectedGroup.includes(activePreview)) ? Math.min(mapW - activePreview.w, mouseGrid.x) : -100;
         const py = (activePreview && !selectedGroup.includes(activePreview)) ? Math.min(mapH - activePreview.h, mouseGrid.y) : -100;
 
@@ -652,19 +609,17 @@
         return placedItems.some(item => (item !== ignoreItem) && (x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y));
     }
 
-    // --- MOUSE LISTENERS ---
     mainArea.addEventListener('mousedown', (e) => {
         if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
         if (e.button === 0) {
+            touchStartTime = Date.now();
             const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
-            if (currentTool && currentTool.id === 'eraser') {
-                if (target) { placedItems = placedItems.filter(i => i !== target); updateStats(); autoSave(); }
-            } else if (target) {
+            if (target) {
                 draggingItem = target; 
                 dragStartPos = { x: target.x, y: target.y }; 
                 dragOffset = { x: mouseGrid.x - target.x, y: mouseGrid.y - target.y };
                 mainArea.classList.add('dragging-item');
-            } else if (currentTool && currentTool.id !== 'eraser' && currentTool.id !== null) {
+            } else if (currentTool) {
                 const px = Math.min(mapW - currentTool.w, mouseGrid.x);
                 const py = Math.min(mapH - currentTool.h, mouseGrid.y);
                 if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { 
@@ -700,46 +655,15 @@
 
     window.addEventListener('mouseup', () => {
         if (draggingItem) {
-            const px = draggingItem.x;
-            const py = draggingItem.y;
-            if (isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem)) { 
+            const pressDuration = Date.now() - touchStartTime;
+            if (pressDuration < 200 && draggingItem.x === dragStartPos.x && draggingItem.y === dragStartPos.y) {
+                rotateItem(draggingItem);
+            } else if (isAreaOccupied(draggingItem.x, draggingItem.y, draggingItem.w, draggingItem.h, draggingItem)) { 
                 draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; 
             }
             draggingItem = null; updateStats(); autoSave();
         }
         isDraggingMap = false; mainArea.classList.remove('dragging-map', 'dragging-item');
-    });
-
-    // --- DRAG AND DROP配置対応 ---
-    mainArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-        
-        const rect = mainArea.getBoundingClientRect();
-        const worldX = (e.clientX - rect.left - offsetX) / scale; 
-        const worldY = (e.clientY - rect.top - offsetY) / scale;
-        mouseGrid.x = Math.max(0, Math.min(mapW, Math.floor(worldX / baseGridSize)));
-        mouseGrid.y = Math.max(0, Math.min(mapH, Math.floor(worldY / baseGridSize)));
-    });
-
-    mainArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const id = e.dataTransfer.getData('text/plain');
-        const b = allBuildings.find(item => item.id === id);
-        
-        if (b) {
-            const px = Math.min(mapW - b.w, mouseGrid.x);
-            const py = Math.min(mapH - b.h, mouseGrid.y);
-            
-            if (!isAreaOccupied(px, py, b.w, b.h)) { 
-                const newItem = JSON.parse(JSON.stringify(b));
-                newItem.x = px; newItem.y = py;
-                newItem.angle = currentTool ? currentTool.angle : 0;
-                placedItems.push(newItem); 
-                updateStats(); 
-                autoSave(); 
-            }
-        }
     });
 
     function updateTouchGridPos(touch) {
@@ -750,7 +674,6 @@
         mouseGrid.y = Math.max(0, Math.min(mapH, Math.floor(worldY / baseGridSize)));
     }
 
-    // --- TOUCH LISTENERS ---
     mainArea.addEventListener('touchstart', (e) => {
         closeTouchMenu();
         clearTimeout(longPressTimer);
@@ -759,6 +682,7 @@
             touchStartDist = getTouchDistance(e.touches[0], e.touches[1]);
             lastScale = scale; isMovingItem = false; touchItem = null;
         } else if (e.touches.length === 1) {
+            touchStartTime = Date.now();
             const touch = e.touches[0];
             touchStartPos = { x: touch.clientX, y: touch.clientY };
             touchStartRawPos = { x: touch.clientX, y: touch.clientY };
@@ -781,7 +705,7 @@
                        showTouchMenu(touchItem, touchStartPos.x, touchStartPos.y);
                     }
                 }, 1000);
-            } else if (!currentTool || currentTool.id === 'eraser' || currentTool.id === null) {
+            } else if (!currentTool) {
                 isDraggingMap = true; lastMousePos = { x: touch.clientX, y: touch.clientY }; mainArea.classList.add('dragging-map');
             }
         }
@@ -825,14 +749,29 @@
 
     mainArea.addEventListener('touchend', (e) => {
         clearTimeout(longPressTimer); clearTimeout(menuDisplayTimer);
-        if (draggingItem && isMovingItem) {
+        
+        const touchDuration = Date.now() - touchStartTime;
+        
+        if (touchItem && !isMovingItem && touchDuration < 200) {
+            rotateItem(touchItem);
+            updateStats(); autoSave();
+        } else if (draggingItem && isMovingItem) {
             const px = draggingItem.x; const py = draggingItem.y;
             if (isAreaOccupied(px, py, draggingItem.w, draggingItem.h, draggingItem)) { 
                 draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; 
             }
             updateStats(); autoSave();
+        } else if (!touchItem && currentTool && touchDuration < 200) {
+            const px = Math.min(mapW - currentTool.w, mouseGrid.x);
+            const py = Math.min(mapH - currentTool.h, mouseGrid.y);
+            if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { 
+                const newItem = JSON.parse(JSON.stringify(currentTool));
+                newItem.x = px; newItem.y = py;
+                placedItems.push(newItem); updateStats(); autoSave(); 
+            }
         }
-        isDraggingMap = false; isMovingItem = false; draggingItem = null; mainArea.classList.remove('dragging-map', 'dragging-item');
+        
+        isDraggingMap = false; isMovingItem = false; draggingItem = null; touchItem = null; mainArea.classList.remove('dragging-map', 'dragging-item');
     }, { passive: true });
 
     function getTouchDistance(touch1, touch2) {
@@ -934,23 +873,18 @@
 
     mainArea.addEventListener('wheel', (e) => {
         e.preventDefault(); 
-
         const rect = mainArea.getBoundingClientRect();
         const zoomSpeed = 0.001; 
         const delta = e.deltaY;
         const oldScale = scale;
-
         const minS = (window.innerWidth <= 768) ? 0.15 : 0.30;
         let newScale = scale - delta * zoomSpeed;
         newScale = Math.min(Math.max(minS, newScale), 1.5);
-
         if (newScale !== oldScale) {
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
-
             offsetX -= (mx - offsetX) * (newScale / oldScale - 1);
             offsetY -= (my - offsetY) * (newScale / oldScale - 1);
-
             scale = newScale;
             updateStatus();
         }
