@@ -13,6 +13,8 @@
             --btn-border: rgba(128, 128, 128, 0.3);
             --sidebar-w: 280px;
             --tooltip-bg: rgba(0, 0, 0, 0.9);
+            --in-port: #00f2ff;
+            --out-port: #ff3e3e;
         }
 
         body { 
@@ -271,7 +273,7 @@
         設置：サイドバー選択 + タップ<br>
         回転：配置済みをタップ<br>
         移動：長押し後ドラッグ<br>
-        削除：右クリック相当(環境による)<br>
+        削除：タップ<br>
         ズーム：2本指
     </div>
 </div>
@@ -467,8 +469,20 @@
 
     function rotateItem(item) {
         if (!item) return;
-        const temp = item.w; item.w = item.h; item.h = temp;
+        const oldW = item.w, oldH = item.h;
+        item.w = oldH; item.h = oldW;
         item.angle = ((item.angle || 0) + 1) % 4;
+
+        // 搬入・搬出口の相対座標を回転 (時計回り90度)
+        const rotatePorts = (ports) => {
+            if(!ports) return;
+            ports.forEach(p => {
+                const px = p.x, py = p.y;
+                p.x = oldH - py;
+                p.y = px;
+            });
+        };
+        rotatePorts(item.inputs); rotatePorts(item.outputs);
     }
 
     window.addEventListener('keydown', (e) => {
@@ -525,6 +539,21 @@
         context.fillText(displayName, x, y);
     }
 
+    // ポート描画（搬入口：水色、搬出口：赤）
+    function drawPorts(context, item) {
+        const drawP = (ports, color) => {
+            if(!ports) return;
+            context.fillStyle = color;
+            ports.forEach(p => {
+                context.beginPath();
+                context.arc((item.x + p.x) * baseGridSize, (item.y + p.y) * baseGridSize, 4 / scale, 0, Math.PI * 2);
+                context.fill();
+            });
+        };
+        drawP(item.inputs, getComputedStyle(document.body).getPropertyValue('--in-port'));
+        drawP(item.outputs, getComputedStyle(document.body).getPropertyValue('--out-port'));
+    }
+
     function draw() {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -544,7 +573,13 @@
             const isSelected = selectedGroup.includes(item);
             ctx.fillStyle = item.color; 
             ctx.globalAlpha = isDragging ? 0.3 : 0.8;
-            ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
+            
+            // コンベア(isPath)の場合は少し細く描画
+            if(item.isPath) {
+                ctx.fillRect(item.x*baseGridSize+5, item.y*baseGridSize+5, item.w*baseGridSize-10, item.h*baseGridSize-10);
+            } else {
+                ctx.fillRect(item.x*baseGridSize+1, item.y*baseGridSize+1, item.w*baseGridSize-2, item.h*baseGridSize-2);
+            }
             
             if (isSelected) {
                 ctx.strokeStyle = varColor('--accent');
@@ -555,6 +590,7 @@
             if (!isDragging) {
                 ctx.globalAlpha = 1.0;
                 drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
+                drawPorts(ctx, item);
             }
             
             if(item.range > 0 && !isDragging) {
@@ -595,6 +631,7 @@
             ctx.fillRect(previewX*baseGridSize, previewY*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
             ctx.globalAlpha = 1.0;
             drawLabel(ctx, activePreview.name, (previewX + activePreview.w/2)*baseGridSize, (previewY + activePreview.h/2)*baseGridSize, activePreview.w, activePreview.h, activePreview.angle || 0);
+            drawPorts(ctx, { ...activePreview, x: previewX, y: previewY });
         }
 
         requestAnimationFrame(draw);
@@ -609,6 +646,7 @@
         return placedItems.some(item => (item !== ignoreItem) && (x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y));
     }
 
+    // --- MOUSE LISTENERS ---
     mainArea.addEventListener('mousedown', (e) => {
         if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
         if (e.button === 0) {
@@ -674,6 +712,7 @@
         mouseGrid.y = Math.max(0, Math.min(mapH, Math.floor(worldY / baseGridSize)));
     }
 
+    // --- TOUCH LISTENERS ---
     mainArea.addEventListener('touchstart', (e) => {
         closeTouchMenu();
         clearTimeout(longPressTimer);
@@ -804,10 +843,10 @@
         const statusEl = document.getElementById('status');
         if(statusEl) statusEl.innerText = `座標: ${mouseGrid.x}, ${mouseGrid.y} | ズーム: ${Math.round(scale * 100)}%`; 
     }
-    function autoSave() { localStorage.setItem('endfield_save', JSON.stringify(placedItems)); }
+    function autoSave() { localStorage.setItem('endfield_save', btoa(unescape(encodeURIComponent(JSON.stringify(placedItems))))); }
     function autoLoad() { 
         const saved = localStorage.getItem('endfield_save'); 
-        if (saved) try { placedItems = JSON.parse(saved); updateStats(); } catch (e) {} 
+        if (saved) try { placedItems = JSON.parse(decodeURIComponent(escape(atob(saved)))); updateStats(); } catch (e) {} 
     }
 
     function downloadImage() {
@@ -852,6 +891,7 @@
             allBuildings = data.buildings || [];
             const cats = [...new Set(allBuildings.map(b => b.category).filter(c => c))];
             const catContainer = document.getElementById('category-filters');
+            catContainer.innerHTML = '<button id="cat-all" class="cat-btn active" onclick="filterCategory(\'all\')">すべて</button>';
             cats.forEach(c => {
                 const btn = document.createElement('button');
                 btn.className = 'cat-btn'; btn.innerText = c; btn.onclick = () => filterCategory(c);
