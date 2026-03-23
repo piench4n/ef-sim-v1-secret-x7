@@ -13,8 +13,8 @@
             --btn-border: rgba(128, 128, 128, 0.3);
             --sidebar-w: 280px;
             --tooltip-bg: rgba(0, 0, 0, 0.9);
-            --in-port: #00f2ff;
-            --out-port: #ff3e3e;
+            --in-port: rgba(0, 242, 255, 0.5);
+            --out-port: rgba(255, 62, 62, 0.5);
         }
 
         body { 
@@ -268,13 +268,10 @@
         移動：配置済みをドラッグ<br>
         削除：右クリック<br>
         ズーム：ホイール<br>
-        <strong>【スマホ操作】</strong><br>
-        画面移動：1本指ドラッグ<br>
-        設置：サイドバー選択 + タップ<br>
-        回転：配置済みをタップ<br>
-        移動：長押し後ドラッグ<br>
-        削除：タップ<br>
-        ズーム：2本指
+        <strong>【コンベア操作】</strong><br>
+        起点：搬出口(赤)を左クリック<br>
+        経由：空マスを左クリック<br>
+        接続：搬入口(水色)を左クリック
     </div>
 </div>
 
@@ -339,6 +336,10 @@
     let selectedGroup = [];
     let bulkDragStart = { x: 0, y: 0 };
     let lastActiveMode = 'move';
+
+    // コンベア接続用の状態
+    let isConveyorMode = false;
+    let conveyorStart = null;
 
     function updateMobileSidebarHeight() {
         if (window.innerWidth <= 768) {
@@ -436,7 +437,10 @@
         const container = document.getElementById('buildings-container');
         if(!container) return;
         container.innerHTML = '';
-        const filtered = allBuildings.filter(b => currentCategory === 'all' || b.category === currentCategory);
+        const filtered = allBuildings.filter(b => {
+            if (b.isPath) return false; // コンベアを一覧から除外
+            return currentCategory === 'all' || b.category === currentCategory;
+        });
         filtered.forEach(b => {
             const btn = document.createElement('button');
             btn.className = 'tool-btn' + (currentTool && currentTool.id === b.id ? ' active' : '');
@@ -459,12 +463,14 @@
         renderButtons();
         document.getElementById('btn-move').classList.remove('active');
         selectedGroup = [];
+        isConveyorMode = false; // ツール変更でコンベアモード解除
     }
 
     function setMoveMode() {
         currentTool = null; lastActiveMode = 'move'; renderButtons();
         document.getElementById('btn-move').classList.add('active');
         selectedGroup = [];
+        isConveyorMode = false;
     }
 
     function rotateItem(item) {
@@ -473,7 +479,6 @@
         item.w = oldH; item.h = oldW;
         item.angle = ((item.angle || 0) + 1) % 4;
 
-        // 搬入・搬出口の相対座標を回転 (時計回り90度)
         const rotatePorts = (ports) => {
             if(!ports) return;
             ports.forEach(p => {
@@ -490,6 +495,10 @@
         if (key === 'r') {
             if (draggingItem) rotateItem(draggingItem);
             else if (currentTool) rotateItem(currentTool);
+        }
+        if (key === 'escape') {
+            isConveyorMode = false;
+            conveyorStart = null;
         }
     });
 
@@ -539,15 +548,22 @@
         context.fillText(displayName, x, y);
     }
 
-    // ポート描画（搬入口：水色、搬出口：赤）
     function drawPorts(context, item) {
         const drawP = (ports, color) => {
             if(!ports) return;
             context.fillStyle = color;
             ports.forEach(p => {
-                context.beginPath();
-                context.arc((item.x + p.x) * baseGridSize, (item.y + p.y) * baseGridSize, 4 / scale, 0, Math.PI * 2);
-                context.fill();
+                const px = (item.x + p.x);
+                const py = (item.y + p.y);
+                // 座標が整数（グリッド境界）の場合は、隣接するマスを特定するために補正が必要な場合があるが、
+                // 基本的に p.x=0, p.w 等の端点。塗りつぶしは「そのマス」に行う。
+                // 座標が 0 なら 0 マス目。座標が w なら w-1 マス目。
+                let targetX = Math.floor(px);
+                let targetY = Math.floor(py);
+                if (px === item.x + item.w) targetX--; 
+                if (py === item.y + item.h) targetY--;
+
+                context.fillRect(targetX * baseGridSize, targetY * baseGridSize, baseGridSize, baseGridSize);
             });
         };
         drawP(item.inputs, getComputedStyle(document.body).getPropertyValue('--in-port'));
@@ -574,7 +590,6 @@
             ctx.fillStyle = item.color; 
             ctx.globalAlpha = isDragging ? 0.3 : 0.8;
             
-            // コンベア(isPath)の場合は少し細く描画
             if(item.isPath) {
                 ctx.fillRect(item.x*baseGridSize+5, item.y*baseGridSize+5, item.w*baseGridSize-10, item.h*baseGridSize-10);
             } else {
@@ -592,46 +607,28 @@
                 drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
                 drawPorts(ctx, item);
             }
-            
-            if(item.range > 0 && !isDragging) {
-                let showRange = false;
-                if(draggingItem) {
-                    const targets = selectedGroup.includes(draggingItem) ? selectedGroup : [draggingItem];
-                    targets.forEach(t => {
-                        if (t.x < item.x + 0.5 + item.range && t.x + t.w > item.x + 0.5 - item.range && t.y < item.y + 0.5 + item.range && t.y + t.h > item.y + 0.5 - item.range) showRange = true;
-                    });
-                } else if (currentTool) {
-                    if (px < item.x + 0.5 + item.range && px + currentTool.w > item.x + 0.5 - item.range && py < item.y + 0.5 + item.range && py + currentTool.h > item.y + 0.5 - item.range) showRange = true;
-                }
-
-                if(showRange) {
-                    ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
-                    ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
-                    ctx.setLineDash([]);
-                }
-            }
         });
 
-        if (draggingItem && draggingItem.range > 0) {
-            ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
-            ctx.strokeRect((draggingItem.x-draggingItem.range+0.5)*baseGridSize, (draggingItem.y-draggingItem.range+0.5)*baseGridSize, (draggingItem.range*2)*baseGridSize, (draggingItem.range*2)*baseGridSize);
-            ctx.setLineDash([]);
-        } else if(currentTool && currentTool.range > 0) {
-            ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
-            ctx.strokeRect((px-currentTool.range+0.5)*baseGridSize, (py-currentTool.range+0.5)*baseGridSize, (currentTool.range*2)*baseGridSize, (currentTool.range*2)*baseGridSize);
-            ctx.setLineDash([]);
+        if(currentTool && !draggingItem) {
+            ctx.globalAlpha = 0.5;
+            const previewX = px;
+            const previewY = py;
+            const occupied = isAreaOccupied(previewX, previewY, currentTool.w, currentTool.h, draggingItem);
+            ctx.fillStyle = occupied ? 'red' : currentTool.color;
+            ctx.fillRect(previewX*baseGridSize, previewY*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
+            ctx.globalAlpha = 1.0;
+            drawLabel(ctx, currentTool.name, (previewX + currentTool.w/2)*baseGridSize, (previewY + currentTool.h/2)*baseGridSize, currentTool.w, currentTool.h, currentTool.angle || 0);
+            drawPorts(ctx, { ...currentTool, x: previewX, y: previewY });
         }
 
-        if(activePreview && !selectedGroup.includes(activePreview)) {
-            ctx.globalAlpha = 0.5;
-            const previewX = (draggingItem) ? draggingItem.x : px;
-            const previewY = (draggingItem) ? draggingItem.y : py;
-            const occupied = isAreaOccupied(previewX, previewY, activePreview.w, activePreview.h, draggingItem);
-            ctx.fillStyle = occupied ? 'red' : activePreview.color;
-            ctx.fillRect(previewX*baseGridSize, previewY*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
-            ctx.globalAlpha = 1.0;
-            drawLabel(ctx, activePreview.name, (previewX + activePreview.w/2)*baseGridSize, (previewY + activePreview.h/2)*baseGridSize, activePreview.w, activePreview.h, activePreview.angle || 0);
-            drawPorts(ctx, { ...activePreview, x: previewX, y: previewY });
+        // コンベア接続プレビュー
+        if (isConveyorMode && conveyorStart) {
+            ctx.strokeStyle = "#636e72";
+            ctx.lineWidth = 10 / scale;
+            ctx.beginPath();
+            ctx.moveTo(conveyorStart.x * baseGridSize + baseGridSize/2, conveyorStart.y * baseGridSize + baseGridSize/2);
+            ctx.lineTo(mouseGrid.x * baseGridSize + baseGridSize/2, mouseGrid.y * baseGridSize + baseGridSize/2);
+            ctx.stroke();
         }
 
         requestAnimationFrame(draw);
@@ -646,12 +643,53 @@
         return placedItems.some(item => (item !== ignoreItem) && (x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y));
     }
 
-    // --- MOUSE LISTENERS ---
     mainArea.addEventListener('mousedown', (e) => {
         if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
         if (e.button === 0) {
             touchStartTime = Date.now();
+            
+            // 搬入・搬出口のクリック判定
             const target = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
+            
+            let clickedInPort = false;
+            let clickedOutPort = false;
+            if (target) {
+                const checkPort = (ports) => {
+                    if(!ports) return false;
+                    return ports.some(p => {
+                        let tx = Math.floor(target.x + p.x); let ty = Math.floor(target.y + p.y);
+                        if (p.x === target.w) tx--; if (p.y === target.h) ty--;
+                        return mouseGrid.x === tx && mouseGrid.y === ty;
+                    });
+                };
+                clickedInPort = checkPort(target.inputs);
+                clickedOutPort = checkPort(target.outputs);
+            }
+
+            // コンベアロジック
+            if (clickedOutPort) {
+                isConveyorMode = true;
+                conveyorStart = { x: mouseGrid.x, y: mouseGrid.y };
+                return;
+            } else if (isConveyorMode) {
+                // コンベアを配置（コンベア設定をallBuildingsから取得）
+                const conveyorConfig = allBuildings.find(b => b.isPath);
+                if (conveyorConfig && !isAreaOccupied(mouseGrid.x, mouseGrid.y, 1, 1)) {
+                    const newItem = JSON.parse(JSON.stringify(conveyorConfig));
+                    newItem.x = mouseGrid.x; newItem.y = mouseGrid.y;
+                    placedItems.push(newItem);
+                }
+                
+                if (clickedInPort) {
+                    isConveyorMode = false; conveyorStart = null;
+                } else {
+                    conveyorStart = { x: mouseGrid.x, y: mouseGrid.y };
+                }
+                updateStats(); autoSave();
+                return;
+            }
+
+            // 通常の設置・移動・回転
             if (target) {
                 draggingItem = target; 
                 dragStartPos = { x: target.x, y: target.y }; 
@@ -670,6 +708,7 @@
         if (e.button === 2) { 
             placedItems = placedItems.filter(item => !(mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h)); 
             updateStats(); autoSave(); 
+            isConveyorMode = false;
         }
     });
 
@@ -792,7 +831,32 @@
         const touchDuration = Date.now() - touchStartTime;
         
         if (touchItem && !isMovingItem && touchDuration < 200) {
-            rotateItem(touchItem);
+            // タッチでコンベア接続判定
+            const checkPort = (ports) => {
+                if(!ports) return false;
+                return ports.some(p => {
+                    let tx = Math.floor(touchItem.x + p.x); let ty = Math.floor(touchItem.y + p.y);
+                    if (p.x === touchItem.w) tx--; if (p.y === touchItem.h) ty--;
+                    return mouseGrid.x === tx && mouseGrid.y === ty;
+                });
+            };
+            const clickedInPort = checkPort(touchItem.inputs);
+            const clickedOutPort = checkPort(touchItem.outputs);
+
+            if (clickedOutPort) {
+                isConveyorMode = true; conveyorStart = { x: mouseGrid.x, y: mouseGrid.y };
+            } else if (isConveyorMode) {
+                const conveyorConfig = allBuildings.find(b => b.isPath);
+                if (conveyorConfig && !isAreaOccupied(mouseGrid.x, mouseGrid.y, 1, 1)) {
+                    const newItem = JSON.parse(JSON.stringify(conveyorConfig));
+                    newItem.x = mouseGrid.x; newItem.y = mouseGrid.y;
+                    placedItems.push(newItem);
+                }
+                if (clickedInPort) { isConveyorMode = false; conveyorStart = null; }
+                else { conveyorStart = { x: mouseGrid.x, y: mouseGrid.y }; }
+            } else {
+                rotateItem(touchItem);
+            }
             updateStats(); autoSave();
         } else if (draggingItem && isMovingItem) {
             const px = draggingItem.x; const py = draggingItem.y;
@@ -801,13 +865,23 @@
             }
             updateStats(); autoSave();
         } else if (!touchItem && currentTool && touchDuration < 200) {
-            const px = Math.min(mapW - currentTool.w, mouseGrid.x);
-            const py = Math.min(mapH - currentTool.h, mouseGrid.y);
-            if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { 
-                const newItem = JSON.parse(JSON.stringify(currentTool));
-                newItem.x = px; newItem.y = py;
-                placedItems.push(newItem); updateStats(); autoSave(); 
+            if (isConveyorMode) {
+                 const conveyorConfig = allBuildings.find(b => b.isPath);
+                 if (conveyorConfig && !isAreaOccupied(mouseGrid.x, mouseGrid.y, 1, 1)) {
+                    const newItem = JSON.parse(JSON.stringify(conveyorConfig));
+                    newItem.x = mouseGrid.x; newItem.y = mouseGrid.y;
+                    placedItems.push(newItem); conveyorStart = { x: mouseGrid.x, y: mouseGrid.y };
+                 }
+            } else {
+                const px = Math.min(mapW - currentTool.w, mouseGrid.x);
+                const py = Math.min(mapH - currentTool.h, mouseGrid.y);
+                if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { 
+                    const newItem = JSON.parse(JSON.stringify(currentTool));
+                    newItem.x = px; newItem.y = py;
+                    placedItems.push(newItem); 
+                }
             }
+            updateStats(); autoSave();
         }
         
         isDraggingMap = false; isMovingItem = false; draggingItem = null; touchItem = null; mainArea.classList.remove('dragging-map', 'dragging-item');
