@@ -8,7 +8,8 @@
       "color": "#ff8800",
       "category": "生産",
       "power": -20,
-      "resource": 10
+      "resource": 10,
+      "outputs": [{ "x": 1.5, "y": 0 }]
     },
     {
       "id": "assembler",
@@ -18,7 +19,9 @@
       "color": "#a29bfe",
       "category": "生産",
       "power": -40,
-      "resource": 0
+      "resource": 0,
+      "inputs": [{ "x": 0, "y": 2 }],
+      "outputs": [{ "x": 4, "y": 2 }]
     },
     {
       "id": "refinery",
@@ -28,7 +31,9 @@
       "color": "#e17055",
       "category": "生産",
       "power": -60,
-      "resource": 0
+      "resource": 0,
+      "inputs": [{ "x": 0, "y": 2.5 }],
+      "outputs": [{ "x": 5, "y": 2.5 }]
     },
     {
       "id": "wind-turbine",
@@ -78,7 +83,8 @@
       "color": "#636e72",
       "category": "物流",
       "power": -2,
-      "resource": 0
+      "resource": 0,
+      "isPath": true
     },
     {
       "id": "storage",
@@ -88,7 +94,9 @@
       "color": "#b2bec3",
       "category": "物流",
       "power": 0,
-      "resource": 0
+      "resource": 0,
+      "inputs": [{ "x": 0, "y": 1.5 }],
+      "outputs": [{ "x": 3, "y": 1.5 }]
     }
   ]
 }
