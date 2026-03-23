@@ -270,9 +270,8 @@
         削除：右クリック<br>
         ズーム：ホイール<br>
         <strong>【コンベア操作】</strong><br>
-        起点：搬出口(赤)を左クリック<br>
-        経由：空マスを左クリック<br>
-        接続：搬入口(水色)を左クリック
+        敷設：搬出口(赤)からドラッグ開始<br>
+        完了：搬入口(水色)で離す
     </div>
 </div>
 
@@ -338,8 +337,7 @@
     let bulkDragStart = { x: 0, y: 0 };
     let lastActiveMode = 'move';
 
-    // コンベア用のデータ構造
-    let conveyors = []; // [{x, y}, ...]
+    let conveyors = []; 
     let isConveyorMode = false;
 
     function updateMobileSidebarHeight() {
@@ -498,9 +496,6 @@
             if (draggingItem) rotateItem(draggingItem);
             else if (currentTool) rotateItem(currentTool);
         }
-        if (key === 'escape') {
-            isConveyorMode = false;
-        }
     });
 
     function drawLabel(context, text, x, y, itemW, itemH, angle = 0) {
@@ -575,7 +570,6 @@
         for(let i=0; i<=mapW; i++) { ctx.beginPath(); ctx.moveTo(i*baseGridSize, 0); ctx.lineTo(i*baseGridSize, mapH*baseGridSize); ctx.stroke(); }
         for(let j=0; j<=mapH; j++) { ctx.beginPath(); ctx.moveTo(0, j*baseGridSize); ctx.lineTo(mapW*baseGridSize, j*baseGridSize); ctx.stroke(); }
         
-        // コンベアの描画
         conveyors.forEach(c => {
             const isDragging = (c === draggingItem);
             ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--conveyor-fill');
@@ -607,7 +601,6 @@
                 drawPorts(ctx, item);
             }
 
-            // 電力範囲の表示（復元箇所）
             if(item.range > 0 && !isDragging) {
                 let showRange = false;
                 if(draggingItem) {
@@ -628,7 +621,6 @@
             }
         });
 
-        // 設置中アイテム自体の電力範囲表示（復元箇所）
         if (draggingItem && draggingItem.range > 0) {
             const dw = draggingItem.w || 1; const dh = draggingItem.h || 1;
             ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
@@ -642,8 +634,8 @@
 
         if(activePreview && !selectedGroup.includes(activePreview)) {
             ctx.globalAlpha = 0.5;
-            const previewX = px;
-            const previewY = py;
+            const previewX = (draggingItem) ? draggingItem.x : px;
+            const previewY = (draggingItem) ? draggingItem.y : py;
             const occupied = isAreaOccupied(previewX, previewY, activePreview.w, activePreview.h, draggingItem);
             ctx.fillStyle = occupied ? 'red' : activePreview.color;
             ctx.fillRect(previewX*baseGridSize, previewY*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
@@ -660,43 +652,35 @@
     function isAreaOccupied(x, y, w, h, ignoreItem = null) {
         const buildingOverlap = placedItems.some(item => (item !== ignoreItem) && (x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y));
         if (buildingOverlap) return true;
-        
         const conveyorOverlap = conveyors.some(c => (c !== ignoreItem) && (x <= c.x && x + w > c.x && y <= c.y && y + h > c.y));
         return conveyorOverlap;
+    }
+
+    function checkPortAt(item, gx, gy) {
+        const check = (ports) => {
+            if(!ports) return false;
+            return ports.some(p => {
+                let tx = Math.floor(item.x + p.x); let ty = Math.floor(item.y + p.y);
+                if (p.x === item.w && p.x > 0) tx--; if (p.y === item.h && p.y > 0) ty--;
+                return gx === tx && gy === ty;
+            });
+        };
+        return { inPort: check(item.inputs), outPort: check(item.outputs) };
     }
 
     mainArea.addEventListener('mousedown', (e) => {
         if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
         if (e.button === 0) {
             touchStartTime = Date.now();
-            
             const buildingTarget = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
             
             if (buildingTarget) {
-                const checkPort = (ports) => {
-                    if(!ports) return false;
-                    return ports.some(p => {
-                        let tx = Math.floor(buildingTarget.x + p.x); let ty = Math.floor(buildingTarget.y + p.y);
-                        if (p.x === buildingTarget.w && p.x > 0) tx--; if (p.y === buildingTarget.h && p.y > 0) ty--;
-                        return mouseGrid.x === tx && mouseGrid.y === ty;
-                    });
-                };
-                if (checkPort(buildingTarget.outputs)) {
+                const ports = checkPortAt(buildingTarget, mouseGrid.x, mouseGrid.y);
+                if (ports.outPort) {
                     isConveyorMode = true;
                     if (!conveyors.some(c => c.x === mouseGrid.x && c.y === mouseGrid.y)) conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
                     return;
                 }
-                if (isConveyorMode && checkPort(buildingTarget.inputs)) {
-                    isConveyorMode = false; autoSave(); return;
-                }
-            }
-
-            if (isConveyorMode) {
-                if (!isAreaOccupied(mouseGrid.x, mouseGrid.y, 1, 1)) {
-                    conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
-                    autoSave();
-                }
-                return;
             }
 
             const conveyorTarget = conveyors.find(c => c.x === mouseGrid.x && c.y === mouseGrid.y);
@@ -731,10 +715,26 @@
         
         const worldX = (e.clientX - rect.left - offsetX) / scale; 
         const worldY = (e.clientY - rect.top - offsetY) / scale;
+        const prevGrid = { x: mouseGrid.x, y: mouseGrid.y };
         mouseGrid.x = Math.max(0, Math.min(mapW - 1, Math.floor(worldX / baseGridSize)));
         mouseGrid.y = Math.max(0, Math.min(mapH - 1, Math.floor(worldY / baseGridSize)));
         
-        if (draggingItem) {
+        if (isConveyorMode) {
+            if (mouseGrid.x !== prevGrid.x || mouseGrid.y !== prevGrid.y) {
+                const buildingAt = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
+                if (buildingAt) {
+                    const ports = checkPortAt(buildingAt, mouseGrid.x, mouseGrid.y);
+                    if (ports.inPort) {
+                        if (!conveyors.some(c => c.x === mouseGrid.x && c.y === mouseGrid.y)) conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
+                        isConveyorMode = false; autoSave(); return;
+                    }
+                }
+                if (!isAreaOccupied(mouseGrid.x, mouseGrid.y, 1, 1)) {
+                    conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
+                    autoSave();
+                }
+            }
+        } else if (draggingItem) {
             let nextX = mouseGrid.x - dragOffset.x;
             let nextY = mouseGrid.y - dragOffset.y;
             const w = draggingItem.w || 1;
@@ -746,11 +746,14 @@
     });
 
     window.addEventListener('mouseup', () => {
+        if (isConveyorMode) {
+            isConveyorMode = false;
+            autoSave();
+        }
         if (draggingItem) {
             const pressDuration = Date.now() - touchStartTime;
             const w = draggingItem.w || 1;
             const h = draggingItem.h || 1;
-            
             if (pressDuration < 200 && draggingItem.x === dragStartPos.x && draggingItem.y === dragStartPos.y && draggingItem.id) {
                 rotateItem(draggingItem);
             } else if (isAreaOccupied(draggingItem.x, draggingItem.y, w, h, draggingItem)) { 
@@ -785,14 +788,22 @@
 
             const buildingTarget = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
             const conveyorTarget = conveyors.find(c => c.x === mouseGrid.x && c.y === mouseGrid.y);
-            touchItem = buildingTarget || conveyorTarget;
             
+            if (buildingTarget) {
+                const ports = checkPortAt(buildingTarget, mouseGrid.x, mouseGrid.y);
+                if (ports.outPort) {
+                    isConveyorMode = true;
+                    if (!conveyors.some(c => c.x === mouseGrid.x && c.y === mouseGrid.y)) conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
+                    return;
+                }
+            }
+
+            touchItem = buildingTarget || conveyorTarget;
             if (touchItem) {
-                const tempOffset = { x: mouseGrid.x - touchItem.x, y: mouseGrid.y - touchItem.y };
+                dragOffset = { x: mouseGrid.x - touchItem.x, y: mouseGrid.y - touchItem.y };
                 longPressTimer = setTimeout(() => {
                     isMovingItem = true;
                     draggingItem = touchItem;
-                    dragOffset = tempOffset;
                     mainArea.classList.add('dragging-item');
                     dragStartPos = { x: touchItem.x, y: touchItem.y };
                 }, 500);
@@ -828,8 +839,25 @@
                 if (!isMovingItem) clearTimeout(longPressTimer);
                 clearTimeout(menuDisplayTimer);
             }
+            const prevGrid = { x: mouseGrid.x, y: mouseGrid.y };
             updateTouchGridPos(touch);
-            if (isDraggingMap) {
+            
+            if (isConveyorMode) {
+                if (mouseGrid.x !== prevGrid.x || mouseGrid.y !== prevGrid.y) {
+                    const buildingAt = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
+                    if (buildingAt) {
+                        const ports = checkPortAt(buildingAt, mouseGrid.x, mouseGrid.y);
+                        if (ports.inPort) {
+                            if (!conveyors.some(c => c.x === mouseGrid.x && c.y === mouseGrid.y)) conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
+                            isConveyorMode = false; autoSave(); return;
+                        }
+                    }
+                    if (!isAreaOccupied(mouseGrid.x, mouseGrid.y, 1, 1)) {
+                        conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
+                        autoSave();
+                    }
+                }
+            } else if (isDraggingMap) {
                 offsetX += touch.clientX - lastMousePos.x; offsetY += touch.clientY - lastMousePos.y; lastMousePos = { x: touch.clientX, y: touch.clientY };
             } else if (isMovingItem && draggingItem) {
                 let nextX = mouseGrid.x - dragOffset.x;
@@ -847,26 +875,12 @@
         clearTimeout(longPressTimer); clearTimeout(menuDisplayTimer);
         const touchDuration = Date.now() - touchStartTime;
         
-        if (touchItem && !isMovingItem && touchDuration < 200) {
+        if (isConveyorMode) {
+            isConveyorMode = false;
+            updateStats(); autoSave();
+        } else if (touchItem && !isMovingItem && touchDuration < 200) {
             if (touchItem.id) {
-                const checkPort = (ports) => {
-                    if(!ports) return false;
-                    return ports.some(p => {
-                        let tx = Math.floor(touchItem.x + p.x); let ty = Math.floor(touchItem.y + p.y);
-                        if (p.x === touchItem.w && p.x > 0) tx--; if (p.y === touchItem.h && p.y > 0) ty--;
-                        return mouseGrid.x === tx && mouseGrid.y === ty;
-                    });
-                };
-                if (checkPort(touchItem.outputs)) {
-                    isConveyorMode = true;
-                    if (!conveyors.some(c => c.x === mouseGrid.x && c.y === mouseGrid.y)) conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
-                } else if (isConveyorMode && checkPort(touchItem.inputs)) {
-                    isConveyorMode = false;
-                } else {
-                    rotateItem(touchItem);
-                }
-            } else {
-                if (isConveyorMode) isConveyorMode = false;
+                rotateItem(touchItem);
             }
             updateStats(); autoSave();
         } else if (draggingItem && isMovingItem) {
@@ -876,9 +890,7 @@
             }
             updateStats(); autoSave();
         } else if (!touchItem && touchDuration < 200) {
-            if (isConveyorMode) {
-                if (!isAreaOccupied(mouseGrid.x, mouseGrid.y, 1, 1)) conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
-            } else if (currentTool) {
+            if (currentTool) {
                 const px = Math.min(mapW - currentTool.w, mouseGrid.x);
                 const py = Math.min(mapH - currentTool.h, mouseGrid.y);
                 if (!isAreaOccupied(px, py, currentTool.w, currentTool.h)) { 
