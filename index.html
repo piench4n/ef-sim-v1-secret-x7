@@ -374,7 +374,6 @@
         showModal('設計図を読み込みますか？現在の配置は上書きされます。', true, () => {
             try {
                 const decoded = JSON.parse(decodeURIComponent(escape(atob(dataArea.value))));
-                // 下位互換性のためコンベアデータの有無を確認
                 placedItems = decoded.placedItems || decoded;
                 conveyors = decoded.conveyors || [];
                 selectedGroup = []; updateStats(); autoSave();
@@ -442,7 +441,6 @@
         if(!container) return;
         container.innerHTML = '';
         const filtered = allBuildings.filter(b => {
-            // コンベアをサイドバーに表示しない
             return !b.isPath && (currentCategory === 'all' || b.category === currentCategory);
         });
         filtered.forEach(b => {
@@ -608,18 +606,50 @@
                 drawLabel(ctx, item.name, (item.x + item.w/2)*baseGridSize, (item.y + item.h/2)*baseGridSize, item.w, item.h, item.angle || 0);
                 drawPorts(ctx, item);
             }
+
+            // 電力範囲の表示（復元箇所）
+            if(item.range > 0 && !isDragging) {
+                let showRange = false;
+                if(draggingItem) {
+                    const targets = selectedGroup.includes(draggingItem) ? selectedGroup : [draggingItem];
+                    targets.forEach(t => {
+                        const tw = t.w || 1; const th = t.h || 1;
+                        if (t.x < item.x + 0.5 + item.range && t.x + tw > item.x + 0.5 - item.range && t.y < item.y + 0.5 + item.range && t.y + th > item.y + 0.5 - item.range) showRange = true;
+                    });
+                } else if (currentTool) {
+                    if (px < item.x + 0.5 + item.range && px + currentTool.w > item.x + 0.5 - item.range && py < item.y + 0.5 + item.range && py + currentTool.h > item.y + 0.5 - item.range) showRange = true;
+                }
+
+                if(showRange) {
+                    ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
+                    ctx.strokeRect((item.x-item.range+0.5)*baseGridSize, (item.y-item.range+0.5)*baseGridSize, (item.range*2)*baseGridSize, (item.range*2)*baseGridSize);
+                    ctx.setLineDash([]);
+                }
+            }
         });
 
-        if(currentTool && !draggingItem) {
+        // 設置中アイテム自体の電力範囲表示（復元箇所）
+        if (draggingItem && draggingItem.range > 0) {
+            const dw = draggingItem.w || 1; const dh = draggingItem.h || 1;
+            ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
+            ctx.strokeRect((draggingItem.x - draggingItem.range + dw/2)*baseGridSize, (draggingItem.y - draggingItem.range + dh/2)*baseGridSize, (draggingItem.range*2)*baseGridSize, (draggingItem.range*2)*baseGridSize);
+            ctx.setLineDash([]);
+        } else if(currentTool && currentTool.range > 0) {
+            ctx.strokeStyle = '#ffcf00'; ctx.lineWidth = 2/scale; ctx.setLineDash([5/scale, 5/scale]);
+            ctx.strokeRect((px - currentTool.range + currentTool.w/2)*baseGridSize, (py - currentTool.range + currentTool.h/2)*baseGridSize, (currentTool.range*2)*baseGridSize, (currentTool.range*2)*baseGridSize);
+            ctx.setLineDash([]);
+        }
+
+        if(activePreview && !selectedGroup.includes(activePreview)) {
             ctx.globalAlpha = 0.5;
             const previewX = px;
             const previewY = py;
-            const occupied = isAreaOccupied(previewX, previewY, currentTool.w, currentTool.h, draggingItem);
-            ctx.fillStyle = occupied ? 'red' : currentTool.color;
-            ctx.fillRect(previewX*baseGridSize, previewY*baseGridSize, currentTool.w*baseGridSize, currentTool.h*baseGridSize);
+            const occupied = isAreaOccupied(previewX, previewY, activePreview.w, activePreview.h, draggingItem);
+            ctx.fillStyle = occupied ? 'red' : activePreview.color;
+            ctx.fillRect(previewX*baseGridSize, previewY*baseGridSize, activePreview.w*baseGridSize, activePreview.h*baseGridSize);
             ctx.globalAlpha = 1.0;
-            drawLabel(ctx, currentTool.name, (previewX + currentTool.w/2)*baseGridSize, (previewY + currentTool.h/2)*baseGridSize, currentTool.w, currentTool.h, currentTool.angle || 0);
-            drawPorts(ctx, { ...currentTool, x: previewX, y: previewY });
+            drawLabel(ctx, activePreview.name, (previewX + activePreview.w/2)*baseGridSize, (previewY + activePreview.h/2)*baseGridSize, activePreview.w, activePreview.h, activePreview.angle || 0);
+            drawPorts(ctx, { ...activePreview, x: previewX, y: previewY });
         }
 
         requestAnimationFrame(draw);
@@ -628,22 +658,18 @@
     function varColor(name) { return getComputedStyle(document.body).getPropertyValue(name).trim(); }
 
     function isAreaOccupied(x, y, w, h, ignoreItem = null) {
-        // 施設同士の重なり
         const buildingOverlap = placedItems.some(item => (item !== ignoreItem) && (x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y));
         if (buildingOverlap) return true;
         
-        // 施設とコンベアの重なり
         const conveyorOverlap = conveyors.some(c => (c !== ignoreItem) && (x <= c.x && x + w > c.x && y <= c.y && y + h > c.y));
         return conveyorOverlap;
     }
 
-    // --- MOUSE LISTENERS ---
     mainArea.addEventListener('mousedown', (e) => {
         if (e.button === 1) { isDraggingMap = true; lastMousePos = { x: e.clientX, y: e.clientY }; mainArea.classList.add('dragging-map'); return; }
         if (e.button === 0) {
             touchStartTime = Date.now();
             
-            // ポート判定
             const buildingTarget = placedItems.find(item => mouseGrid.x >= item.x && mouseGrid.x < item.x + item.w && mouseGrid.y >= item.y && mouseGrid.y < item.y + item.h);
             
             if (buildingTarget) {
@@ -657,19 +683,14 @@
                 };
                 if (checkPort(buildingTarget.outputs)) {
                     isConveyorMode = true;
-                    if (!conveyors.some(c => c.x === mouseGrid.x && c.y === mouseGrid.y)) {
-                        conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
-                    }
+                    if (!conveyors.some(c => c.x === mouseGrid.x && c.y === mouseGrid.y)) conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
                     return;
                 }
                 if (isConveyorMode && checkPort(buildingTarget.inputs)) {
-                    isConveyorMode = false;
-                    autoSave();
-                    return;
+                    isConveyorMode = false; autoSave(); return;
                 }
             }
 
-            // コンベア配置モード中
             if (isConveyorMode) {
                 if (!isAreaOccupied(mouseGrid.x, mouseGrid.y, 1, 1)) {
                     conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
@@ -678,9 +699,7 @@
                 return;
             }
 
-            // コンベアのドラッグ対象判定
             const conveyorTarget = conveyors.find(c => c.x === mouseGrid.x && c.y === mouseGrid.y);
-
             const target = buildingTarget || conveyorTarget;
 
             if (target) {
@@ -718,7 +737,6 @@
         if (draggingItem) {
             let nextX = mouseGrid.x - dragOffset.x;
             let nextY = mouseGrid.y - dragOffset.y;
-            // 施設かコンベアかでサイズ判定を変える
             const w = draggingItem.w || 1;
             const h = draggingItem.h || 1;
             draggingItem.x = Math.max(0, Math.min(mapW - w, nextX));
@@ -733,7 +751,6 @@
             const w = draggingItem.w || 1;
             const h = draggingItem.h || 1;
             
-            // 施設の場合のみ回転
             if (pressDuration < 200 && draggingItem.x === dragStartPos.x && draggingItem.y === dragStartPos.y && draggingItem.id) {
                 rotateItem(draggingItem);
             } else if (isAreaOccupied(draggingItem.x, draggingItem.y, w, h, draggingItem)) { 
@@ -752,7 +769,6 @@
         mouseGrid.y = Math.max(0, Math.min(mapH - 1, Math.floor(worldY / baseGridSize)));
     }
 
-    // --- TOUCH LISTENERS ---
     mainArea.addEventListener('touchstart', (e) => {
         closeTouchMenu();
         clearTimeout(longPressTimer);
@@ -773,7 +789,6 @@
             
             if (touchItem) {
                 const tempOffset = { x: mouseGrid.x - touchItem.x, y: mouseGrid.y - touchItem.y };
-                
                 longPressTimer = setTimeout(() => {
                     isMovingItem = true;
                     draggingItem = touchItem;
@@ -781,11 +796,8 @@
                     mainArea.classList.add('dragging-item');
                     dragStartPos = { x: touchItem.x, y: touchItem.y };
                 }, 500);
-
                 menuDisplayTimer = setTimeout(() => {
-                    if (!isMovingItem) {
-                       showTouchMenu(touchItem, touchStartPos.x, touchStartPos.y);
-                    }
+                    if (!isMovingItem) showTouchMenu(touchItem, touchStartPos.x, touchStartPos.y);
                 }, 1000);
             } else if (!currentTool) {
                 isDraggingMap = true; lastMousePos = { x: touch.clientX, y: touch.clientY }; mainArea.classList.add('dragging-map');
@@ -833,12 +845,10 @@
 
     mainArea.addEventListener('touchend', (e) => {
         clearTimeout(longPressTimer); clearTimeout(menuDisplayTimer);
-        
         const touchDuration = Date.now() - touchStartTime;
         
         if (touchItem && !isMovingItem && touchDuration < 200) {
-            // タッチでのコンベア接続判定
-            if (touchItem.id) { // 施設の場合
+            if (touchItem.id) {
                 const checkPort = (ports) => {
                     if(!ports) return false;
                     return ports.some(p => {
@@ -856,22 +866,18 @@
                     rotateItem(touchItem);
                 }
             } else {
-                // コンベアマスをタップ
                 if (isConveyorMode) isConveyorMode = false;
             }
             updateStats(); autoSave();
         } else if (draggingItem && isMovingItem) {
-            const w = draggingItem.w || 1;
-            const h = draggingItem.h || 1;
+            const w = draggingItem.w || 1; const h = draggingItem.h || 1;
             if (isAreaOccupied(draggingItem.x, draggingItem.y, w, h, draggingItem)) { 
                 draggingItem.x = dragStartPos.x; draggingItem.y = dragStartPos.y; 
             }
             updateStats(); autoSave();
         } else if (!touchItem && touchDuration < 200) {
             if (isConveyorMode) {
-                if (!isAreaOccupied(mouseGrid.x, mouseGrid.y, 1, 1)) {
-                    conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
-                }
+                if (!isAreaOccupied(mouseGrid.x, mouseGrid.y, 1, 1)) conveyors.push({x: mouseGrid.x, y: mouseGrid.y});
             } else if (currentTool) {
                 const px = Math.min(mapW - currentTool.w, mouseGrid.x);
                 const py = Math.min(mapH - currentTool.h, mouseGrid.y);
@@ -883,7 +889,6 @@
             }
             updateStats(); autoSave();
         }
-        
         isDraggingMap = false; isMovingItem = false; draggingItem = null; touchItem = null; mainArea.classList.remove('dragging-map', 'dragging-item');
     }, { passive: true });
 
@@ -945,7 +950,6 @@
         for(let i=0; i<=mapW; i++) { expCtx.beginPath(); expCtx.moveTo(i*baseGridSize, 0); expCtx.lineTo(i*baseGridSize, expCanvas.height); expCtx.stroke(); }
         for(let j=0; j<=mapH; j++) { expCtx.beginPath(); expCtx.moveTo(0, j*baseGridSize); expCtx.lineTo(expCanvas.width, j*baseGridSize); expCtx.stroke(); }
         
-        // 保存画像にもコンベアを描画
         conveyors.forEach(c => {
             expCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--conveyor-fill');
             expCtx.fillRect(c.x * baseGridSize, c.y * baseGridSize, baseGridSize, baseGridSize);
